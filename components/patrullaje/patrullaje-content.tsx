@@ -15,6 +15,7 @@ import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
 import { usePatrulleroGpsTracking } from "@/lib/use-patrullero-gps";
 import { getAlertaGeneradaPorLabel, getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
 import { getApiErrorMessage } from "@/lib/api";
+import { MAP_LEGEND_ITEMS } from "@/lib/map-markers-meta";
 import { isPolicia } from "@/lib/roles";
 import { toast } from "sonner";
 import { ExternalLink, Loader2, LogOut, MapPin, RefreshCw, ShieldAlert, Bell } from "lucide-react";
@@ -141,12 +142,35 @@ function AlertasList({
 }
 
 function MapLegend({ showPatrulleros = false }: { showPatrulleros?: boolean }) {
+  const items = MAP_LEGEND_ITEMS.filter(
+    (item) => showPatrulleros || item.shape !== "unit",
+  );
+
   return (
-    <div className="pointer-events-none absolute top-3 left-3 z-[1000] rounded-lg bg-[#1e293b]/90 px-3 py-2 text-[10px] text-[#94a3b8] border border-[#334155]">
-      <p className="font-semibold text-white mb-1">Leyenda</p>
-      <p>🔴 Círculos = calor IA (disparo/grito)</p>
-      <p>📍 Pin rojo = alerta activa</p>
-      {showPatrulleros && <p>🔵 Pin azul = patrullero en vivo</p>}
+    <div className="pointer-events-none absolute top-3 left-3 z-[1000] rounded-md bg-white/95 px-3 py-2.5 text-[11px] text-slate-600 border border-slate-200/80 shadow-sm backdrop-blur-sm">
+      <p className="font-medium text-slate-900 mb-2 text-xs">Leyenda</p>
+      <ul className="space-y-1.5">
+        {items.map((item) => (
+          <li key={item.label} className="flex items-center gap-2">
+            {item.shape === "pin" ? (
+              <span
+                className="inline-block h-3 w-2.5 rounded-t-full rounded-b-[999px] border border-white shadow-sm"
+                style={{ backgroundColor: item.color }}
+              />
+            ) : (
+              <span
+                className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
+                style={{ backgroundColor: item.color }}
+              />
+            )}
+            <span>{item.label}</span>
+          </li>
+        ))}
+        <li className="flex items-center gap-2 pt-0.5 border-t border-slate-100 mt-1">
+          <span className="inline-block h-3 w-3 rounded-full border border-red-300 bg-red-500/15" />
+          <span>Calor IA (zona)</span>
+        </li>
+      </ul>
     </div>
   );
 }

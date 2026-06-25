@@ -6,7 +6,13 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import wellknown from "wellknown";
 import { Zona, Nodo, Alerta } from "@/lib/core-service";
-import { getAlertaGeneradaPorLabel, getAlertaTipoLabel } from "@/lib/alert-utils";
+import { getAlertaGeneradaPorLabel, getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
+import {
+  ensureMapMarkerStyles,
+  getAlertMapMarkerKind,
+  getAlertMapMarkerLabel,
+  getAlertMarkerIcon,
+} from "@/lib/map-markers";
 
 // Corrección de íconos por defecto de Leaflet en React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -19,15 +25,6 @@ L.Icon.Default.mergeOptions({
 // Iconos personalizados
 const nodoIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const alertaIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -61,7 +58,11 @@ const getRiesgoLabel = (nivel: number) => {
 };
 
 export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
-  const milagroCenter: [number, number] = [-2.14, -79.59]; // Centro aproximado de Milagro
+  const milagroCenter: [number, number] = [-2.14, -79.59];
+
+  useEffect(() => {
+    ensureMapMarkerStyles();
+  }, []);
 
   // Parsea POINT(lon lat) a [lat, lon]
   const parsePoint = (wkt: string | undefined | null): [number, number] | null => {
@@ -122,10 +123,10 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
                 <Popup>
                   <div style={{ minWidth: 160 }}>
                     <div className="text-sm font-bold" style={{ color }}>{zona.nombre}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Riesgo: <strong>{getRiesgoLabel(zona.riesgoNivel)}</strong> (Nivel {zona.riesgoNivel})
+                    <div className="text-xs text-slate-400 mt-1">
+                      Riesgo: <strong className="text-slate-200">{getRiesgoLabel(zona.riesgoNivel)}</strong> (Nivel {zona.riesgoNivel})
                     </div>
-                    <div className="text-xs mt-1">{zona.descripcion}</div>
+                    <div className="text-xs text-slate-300 mt-1">{zona.descripcion}</div>
                   </div>
                 </Popup>
               </Polygon>
@@ -145,8 +146,8 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
         return (
           <Marker key={nodo.id} position={pos} icon={nodoIcon}>
             <Popup>
-              <div className="text-sm font-bold text-green-700">Nodo: {nodo.codigo}</div>
-              <div className="text-xs">{nodo.descripcion}</div>
+              <div className="text-sm font-bold text-emerald-400">Nodo: {nodo.codigo}</div>
+              <div className="text-xs text-slate-300">{nodo.descripcion}</div>
             </Popup>
           </Marker>
         );
@@ -166,17 +167,20 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
 
         if (!pos) return null;
 
+        const kind = getAlertMapMarkerKind(alerta);
+        const subtipo = getAlertaSubtipo(alerta);
+
         return (
-          <Marker key={alerta.id} position={pos} icon={alertaIcon}>
+          <Marker key={alerta.id} position={pos} icon={getAlertMarkerIcon(alerta)}>
             <Popup>
-              <div className="text-sm font-bold text-red-600">Alerta {alerta.codigo}</div>
-              <div className="text-xs">{getAlertaTipoLabel(alerta)}</div>
-              {alerta.evento?.subtipo && (
-                <div className="text-xs capitalize">Subtipo: {alerta.evento.subtipo.replace(/_/g, " ")}</div>
+              <div className="text-sm font-bold text-white">Alerta {alerta.codigo}</div>
+              <div className="text-xs font-medium text-slate-200">{getAlertMapMarkerLabel(kind)}</div>
+              {subtipo && (
+                <div className="text-xs capitalize text-slate-400">Subtipo: {subtipo}</div>
               )}
-              {alerta.descripcion && <div className="text-xs">{alerta.descripcion}</div>}
-              <div className="text-xs">Generada por: {getAlertaGeneradaPorLabel(alerta)}</div>
-              <div className="text-xs">Estado: {alerta.estado}</div>
+              {alerta.descripcion && <div className="text-xs text-slate-300">{alerta.descripcion}</div>}
+              <div className="text-xs text-slate-400">Generada por: {getAlertaGeneradaPorLabel(alerta)}</div>
+              <div className="text-xs text-slate-400">Estado: {alerta.estado}</div>
             </Popup>
           </Marker>
         );
