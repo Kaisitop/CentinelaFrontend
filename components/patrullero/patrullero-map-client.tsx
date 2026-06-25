@@ -2,24 +2,18 @@
 
 import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, Circle, Marker, Popup, Polyline, useMap } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Alerta, HeatMapPoint, PosicionPatrullero } from "@/lib/core-service";
-import { getAlertaTipoLabel } from "@/lib/alert-utils";
-
-const alertIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-const patrolIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+import {
+  ensureMapMarkerStyles,
+  getAlertMapMarkerKind,
+  getAlertMapMarkerLabel,
+  getAlertMarkerIcon,
+  getOwnLocationMarkerIcon,
+  getPatrolMarkerIcon,
+  MAP_LEGEND_ITEMS,
+} from "@/lib/map-markers";
+import { getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
 
 function FlyToPosition({ position }: { position: [number, number] | null }) {
   const map = useMap();
@@ -59,6 +53,10 @@ export default function PatrulleroMapClient({
   focusPosition = null,
   showOwnLocation = true,
 }: PatrulleroMapClientProps) {
+  useEffect(() => {
+    ensureMapMarkerStyles();
+  }, []);
+
   const center = useMemo<[number, number]>(() => {
     if (alertas.length > 0 && alertas[0].latitud != null && alertas[0].longitud != null) {
       return [alertas[0].latitud, alertas[0].longitud];
@@ -77,6 +75,7 @@ export default function PatrulleroMapClient({
   );
 
   const selectedId = selectedAlerta?.id ?? selectedAlertaId ?? null;
+  const linkedPatrolId = selectedAlerta?.reconocidaPor ?? null;
 
   const linkLine = useMemo(() => {
     if (!selectedAlerta?.reconocidaPor) return null;
@@ -94,42 +93,46 @@ export default function PatrulleroMapClient({
       center={center}
       zoom={14}
       className="h-full w-full z-0"
-      style={{ height: "100%", minHeight: 240 }}
+      style={{ height: "100%", minHeight: 240, background: "#0f172a" }}
       scrollWheelZoom
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
       <FlyToPosition position={focusPosition ?? userLocation} />
 
       {showOwnLocation && userLocation && (
-        <Marker position={userLocation}>
+        <Marker position={userLocation} icon={getOwnLocationMarkerIcon()}>
           <Popup>Tu ubicación</Popup>
         </Marker>
       )}
 
-      {patrulleros.map((p) => (
-        <Marker
-          key={p.usuarioId}
-          position={[p.latitud, p.longitud]}
-          icon={patrolIcon}
-        >
-          <Popup>
-            <div className="text-sm">
-              <p className="font-bold text-blue-700">
-                {p.nombre || "Patrullero"}
-              </p>
-              <p className="text-xs text-gray-600">
-                Actualizado {formatUpdatedAt(p.updatedAt)}
-              </p>
-              {p.precisionM != null && (
-                <p className="text-xs text-gray-500">±{Math.round(p.precisionM)} m</p>
-              )}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      {patrulleros.map((p) => {
+        const isLinked = p.usuarioId === linkedPatrolId;
+        return (
+          <Marker
+            key={p.usuarioId}
+            position={[p.latitud, p.longitud]}
+            icon={getPatrolMarkerIcon(isLinked)}
+            zIndexOffset={isLinked ? 900 : 700}
+          >
+            <Popup>
+              <div className="text-sm min-w-[140px]">
+                <p className="font-semibold text-white">
+                  {p.nombre || "Patrullero"}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Actualizado {formatUpdatedAt(p.updatedAt)}
+                </p>
+                {p.precisionM != null && (
+                  <p className="text-xs text-slate-500">±{Math.round(p.precisionM)} m</p>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
 
       {linkLine && (
         <Polyline
@@ -144,10 +147,11 @@ export default function PatrulleroMapClient({
           center={[point.lat, point.lng]}
           radius={80 + point.intensity * 120}
           pathOptions={{
-            color: "#ef4444",
-            fillColor: "#ef4444",
-            fillOpacity: 0.15 + point.intensity * 0.35,
+            color: point.subtipo === "grito" ? "#B45309" : "#BE123C",
+            fillColor: point.subtipo === "grito" ? "#B45309" : "#BE123C",
+            fillOpacity: 0.08 + point.intensity * 0.22,
             weight: 1,
+            opacity: 0.55,
           }}
         />
       ))}
@@ -155,22 +159,31 @@ export default function PatrulleroMapClient({
       {alertasActivas.map((alerta) => {
         if (alerta.latitud == null || alerta.longitud == null) return null;
         const isSelected = alerta.id === selectedId;
+        const kind = getAlertMapMarkerKind(alerta);
+        const subtipo = getAlertaSubtipo(alerta);
+
         return (
           <Marker
             key={alerta.id}
             position={[alerta.latitud, alerta.longitud]}
-            icon={alertIcon}
+            icon={getAlertMarkerIcon(alerta, isSelected)}
             eventHandlers={{ click: () => onSelectAlerta(alerta) }}
-            opacity={isSelected ? 1 : 0.85}
+            zIndexOffset={isSelected ? 1000 : kind === "disparo" ? 500 : 400}
           >
             <Popup>
-              <div className="text-sm">
-                <p className="font-bold text-red-700">{alerta.codigo}</p>
-                <p>{getAlertaTipoLabel(alerta)}</p>
-                <p className="text-xs">{alerta.descripcion}</p>
+              <div className="text-sm min-w-[160px]">
+                <p className="font-bold text-white">{alerta.codigo}</p>
+                <p className="text-xs font-medium text-slate-200 mt-0.5">
+                  {getAlertMapMarkerLabel(kind)}
+                  {subtipo ? ` · ${subtipo}` : ""}
+                </p>
+                <p className="text-xs text-slate-400">{getAlertaTipoLabel(alerta)}</p>
+                {alerta.descripcion && (
+                  <p className="text-xs text-slate-300 mt-1">{alerta.descripcion}</p>
+                )}
                 <button
                   type="button"
-                  className="mt-2 text-xs text-blue-600 underline"
+                  className="mt-2 text-xs text-indigo-400 underline"
                   onClick={() => onSelectAlerta(alerta)}
                 >
                   Ver detalle
