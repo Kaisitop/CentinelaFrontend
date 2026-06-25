@@ -58,18 +58,24 @@ export default function PatrullajePage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    try {
-      const [z, n] = await Promise.all([
-        coreService.getZonas(),
-        coreService.getNodos(),
-      ]);
-      setZonas(z.filter(zona => zona.activa));
-      setNodos(n);
-    } catch {
-      toast.error("Error al cargar datos de zonas y nodos");
-    } finally {
-      setLoading(false);
+    const [z, n] = await Promise.allSettled([
+      coreService.getZonas(),
+      coreService.getNodos(),
+    ]);
+
+    if (z.status === "fulfilled") {
+      setZonas(z.value.filter((zona) => zona.activa));
+    } else {
+      toast.error("No se pudieron cargar las zonas");
     }
+
+    if (n.status === "fulfilled") {
+      setNodos(n.value);
+    } else {
+      toast.error("Sin permiso para ver nodos. Cierra sesión y vuelve a entrar.");
+    }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

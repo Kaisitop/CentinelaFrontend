@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/auth-provider'
+import { OneSignalProvider } from '@/components/onesignal-provider'
+import { OneSignalSdkLoader } from '@/components/onesignal-sdk-loader'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -38,7 +41,11 @@ export default function RootLayout({
   return (
     <html lang="es" className="bg-[#0f172a]">
       <body className="font-sans antialiased bg-[#0f172a] text-[#f8fafc]">
-        <AuthProvider>{children}</AuthProvider>
+        <OneSignalSdkLoader />
+        <AuthProvider>
+          <OneSignalProvider>{children}</OneSignalProvider>
+        </AuthProvider>
+        <Toaster richColors position="top-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

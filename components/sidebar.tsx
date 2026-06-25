@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { PushNotificationsControl } from "@/components/push-notifications-control";
 
 const navigation = [
   {
@@ -83,6 +84,11 @@ export function Sidebar() {
           <span className="text-[#64748b]">Nodos: <span className="text-[#22c55e]">48/52</span></span>
           <span className="text-[#64748b]">Alertas: <span className="text-[#ef4444]">2</span></span>
         </div>
+      </div>
+
+      {/* Push notifications */}
+      <div className="px-2 py-3 border-b border-[#334155]">
+        <PushNotificationsControl />
       </div>
 
       {/* Navigation */}

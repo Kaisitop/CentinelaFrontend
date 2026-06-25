@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { coreService, Reporte } from "@/lib/core-service";
+import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
 import { toast } from "sonner";
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
@@ -55,6 +56,14 @@ export default function ReportesPage() {
   }, []);
 
   useEffect(() => { fetchReportes(); }, [fetchReportes]);
+
+  useCentinelaRealtime({
+    "reporte.created": () => {
+      toast.info("Nuevo reporte ciudadano recibido");
+      fetchReportes();
+    },
+    "reporte.updated": () => fetchReportes(),
+  });
 
   // ─── Acciones ────────────────────────────────────────────────────────────
 
@@ -224,7 +233,7 @@ export default function ReportesPage() {
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${estado.bg}`}>
                               {estado.label}
                             </span>
-                            <p className="text-xs text-[#64748b] mt-2">{r.zona?.nombre ?? "Sin zona"}</p>
+                            <p className="text-xs text-[#64748b] mt-2">{r.zonaNombre ?? "Sin zona"}</p>
                           </div>
                         </div>
                         <p className="text-sm text-[#94a3b8] line-clamp-2">{r.descripcion}</p>
@@ -268,7 +277,7 @@ export default function ReportesPage() {
 
                   <div>
                     <p className="text-xs text-[#64748b] mb-1">Zona</p>
-                    <p className="text-sm text-white">{selected.zona?.nombre ?? "Sin zona asignada"}</p>
+                    <p className="text-sm text-white">{selected.zonaNombre ?? "Sin zona asignada"}</p>
                   </div>
 
                   <div>

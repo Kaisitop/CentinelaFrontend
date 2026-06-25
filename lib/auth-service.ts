@@ -43,7 +43,6 @@ export const authService = {
   async login(payload: LoginPayload): Promise<LoginResponse> {
     const { data } = await api.post<LoginResponse>("/auth/login", payload)
     
-    // RESTRICCIÓN DE DASHBOARD: No permitir acceso a ciudadanos
     if (data.user.rol && data.user.rol.toLowerCase() === "ciudadano") {
       throw new Error("Acceso denegado: Los ciudadanos no pueden acceder al panel administrativo. Por favor use la aplicación móvil.")
     }
