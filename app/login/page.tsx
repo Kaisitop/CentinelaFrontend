@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { useAuth } from "@/components/auth-provider"
+import { getDefaultRouteForRole, isPolicia } from "@/lib/roles"
+import { authService } from "@/lib/auth-service"
 import { getApiErrorMessage } from "@/lib/api"
 
 export default function LoginPage() {
@@ -25,7 +27,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login({ email, password })
-      router.push("/")
+      const user = authService.getCurrentUser()
+      router.push(getDefaultRouteForRole(user?.rol))
     } catch (err) {
       setError(getApiErrorMessage(err, "Credenciales inválidas. Verifica tu correo y contraseña."))
     } finally {

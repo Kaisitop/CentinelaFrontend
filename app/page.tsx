@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { coreService, Zona, Nodo, Alerta, Evento, Reporte } from "@/lib/core-service";
+import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
+import {
+  getAlertaConfianzaPct,
+  getAlertaSubtipo,
+  getAlertaTipoLabel,
+} from "@/lib/alert-utils";
 import Map from "@/components/Map";
 
 const getEstadoColor = (estado: string) => {
@@ -40,29 +46,47 @@ export default function Dashboard() {
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [zData, nData, aData, eData, rData] = await Promise.all([
-          coreService.getZonas(),
-          coreService.getNodos(),
-          coreService.getAlertas(),
-          coreService.getEventos(),
-          coreService.getReportes()
-        ]);
-        setZonas(zData);
-        setNodos(nData);
-        setAlertas(aData);
-        setEventos(eData);
-        setReportes(rData);
-      } catch (err) {
-        console.error("Error fetching dashboard data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    const results = await Promise.allSettled([
+      coreService.getZonas(),
+      coreService.getNodos(),
+      coreService.getAlertas(),
+      coreService.getEventos(),
+      coreService.getReportes(),
+    ]);
+
+    const [z, n, a, e, r] = results;
+
+    if (z.status === "fulfilled") setZonas(z.value);
+    else console.error("GET /zonas:", z.reason);
+
+    if (n.status === "fulfilled") setNodos(n.value);
+    else console.error("GET /nodos:", n.reason);
+
+    if (a.status === "fulfilled") setAlertas(a.value);
+    else console.error("GET /alertas:", a.reason);
+
+    if (e.status === "fulfilled") setEventos(e.value);
+    else console.error("GET /eventos:", e.reason);
+
+    if (r.status === "fulfilled") setReportes(r.value);
+    else console.error("GET /reportes:", r.reason);
+
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useCentinelaRealtime({
+    "reporte.created": () => fetchData(),
+    "reporte.updated": () => fetchData(),
+    "alerta.created": () => fetchData(),
+    "alerta.updated": () => fetchData(),
+    "evento.created": () => fetchData(),
+    "evento.updated": () => fetchData(),
+  });
 
   if (loading) {
     return (
@@ -181,12 +205,14 @@ export default function Dashboard() {
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-[#0f172a] flex items-center justify-center">
                         <svg className="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getSubtipoIcon(alert.subtipo)} />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getSubtipoIcon(alert.evento?.subtipo ?? "")} />
                         </svg>
                       </div>
                       <div>
                         <h3 className="font-medium text-white text-sm">{alert.codigo}</h3>
-                        <p className="text-xs text-[#94a3b8] capitalize">{alert.evento?.subtipo?.replace("_", " ") || "ciudadano"}</p>
+                        <p className="text-xs text-[#94a3b8] capitalize">
+                          {getAlertaSubtipo(alert) || getAlertaTipoLabel(alert)}
+                        </p>
                       </div>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(alert.estado)}`}>
@@ -195,9 +221,9 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#94a3b8]">{new Date(alert.createdAt).toLocaleString()}</span>
-                    {alert.evento?.confianza && (
+                    {getAlertaConfianzaPct(alert) != null && (
                       <span className="text-[#6366f1]">
-                        Conf: {(alert.evento.confianza * 100).toFixed(0)}%
+                        Conf: {getAlertaConfianzaPct(alert)!.toFixed(0)}%
                       </span>
                     )}
                   </div>

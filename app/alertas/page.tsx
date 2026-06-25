@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { coreService, Alerta } from "@/lib/core-service";
+import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
+import {
+  getAlertaConfianzaPct,
+  getAlertaDescripcion,
+  getAlertaGeneradaPorLabel,
+  getAlertaMetadatosResumen,
+  getAlertaSeveridad,
+  getAlertaSubtipo,
+  getAlertaTipoLabel,
+  getAlertaTipoUi,
+} from "@/lib/alert-utils";
 import { toast } from "sonner"; // webcentinela uses sonner for toasts based on package.json
+import { AlertaDetailDialog } from "@/components/alerta-detail-dialog";
 
 const getEstadoColor = (estado: string) => {
   switch (estado) {
@@ -11,6 +24,7 @@ const getEstadoColor = (estado: string) => {
     case "reconocida": return "bg-[#f59e0b] text-white";
     case "cerrada": return "bg-[#22c55e] text-white";
     case "falsa_alarma": return "bg-[#64748b] text-white";
+    case "completada": return "bg-[#22c55e] text-white";
     default: return "bg-[#334155] text-[#94a3b8]";
   }
 };
@@ -21,6 +35,7 @@ const getEstadoLabel = (estado: string) => {
     case "reconocida": return "Reconocida";
     case "cerrada": return "Cerrada";
     case "falsa_alarma": return "Falsa Alarma";
+    case "completada": return "Completada";
     default: return estado;
   }
 };
@@ -40,15 +55,20 @@ const getTipoIcon = (tipo: string) => {
   }
 };
 
-export default function AlertasPage() {
+function AlertasPageContent() {
+  const searchParams = useSearchParams();
+  const alertaQuery = searchParams.get("alerta");
   const [alertsData, setAlertsData] = useState<Alerta[]>([]);
   const [filterEstado, setFilterEstado] = useState("todas");
   const [filterTipo, setFilterTipo] = useState("todos");
   const [filterSeveridad, setFilterSeveridad] = useState("todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [detailAlertaId, setDetailAlertaId] = useState<string | null>(null);
+  const [detailPreview, setDetailPreview] = useState<Alerta | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       const data = await coreService.getAlertas();
       setAlertsData(data);
@@ -57,11 +77,29 @@ export default function AlertasPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAlerts();
-  }, []);
+  }, [fetchAlerts]);
+
+  useCentinelaRealtime({
+    "alerta.created": () => {
+      toast.info("Nueva alerta operativa");
+      fetchAlerts();
+    },
+    "alerta.updated": () => fetchAlerts(),
+  });
+
+  useEffect(() => {
+    if (!alertaQuery || alertsData.length === 0) return;
+    const match = alertsData.find((a) => a.id === alertaQuery);
+    if (match) {
+      setDetailAlertaId(match.id);
+      setDetailPreview(match);
+      setDetailOpen(true);
+    }
+  }, [alertaQuery, alertsData]);
 
   const handleReconocer = async (id: string) => {
     try {
@@ -84,10 +122,16 @@ export default function AlertasPage() {
     }
   };
 
+  const handleVerDetalle = (alert: Alerta) => {
+    setDetailAlertaId(alert.id);
+    setDetailPreview(alert);
+    setDetailOpen(true);
+  };
+
   const filteredAlerts = alertsData.filter((alert) => {
-    const severidad = alert.evento?.severidad || 1;
-    const tipo = alert.evento?.tipo || alert.reporte?.tipo || "manual";
-    const subtipo = alert.evento?.subtipo || alert.reporte?.tipo || "";
+    const severidad = getAlertaSeveridad(alert);
+    const tipo = getAlertaTipoUi(alert);
+    const subtipo = getAlertaSubtipo(alert);
 
     const matchesEstado = filterEstado === "todas" || alert.estado === filterEstado;
     const matchesTipo = filterTipo === "todos" || tipo === filterTipo;
@@ -217,10 +261,12 @@ export default function AlertasPage() {
                   <td colSpan={8} className="px-4 py-8 text-center text-[#94a3b8]">Cargando alertas...</td>
                 </tr>
               ) : filteredAlerts.map((alert) => {
-                const tipo = alert.evento?.tipo || alert.reporte?.tipo || "manual";
-                const subtipo = alert.evento?.subtipo || alert.reporte?.tipo || "";
-                const descripcion = alert.evento?.descripcion || alert.reporte?.descripcion || alert.notas || "";
-                const severidad = alert.evento?.severidad || 1;
+                const tipoUi = getAlertaTipoUi(alert);
+                const subtipo = getAlertaSubtipo(alert);
+                const descripcion = getAlertaDescripcion(alert);
+                const metadatosResumen = getAlertaMetadatosResumen(alert);
+                const severidad = getAlertaSeveridad(alert);
+                const confianzaPct = getAlertaConfianzaPct(alert);
                 
                 return (
                 <tr key={alert.id} className="hover:bg-[#334155]/30 transition-colors">
@@ -228,7 +274,7 @@ export default function AlertasPage() {
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-[#0f172a] flex items-center justify-center">
                         <svg className="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getTipoIcon(tipo)} />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getTipoIcon(tipoUi)} />
                         </svg>
                       </div>
                       <span className="text-sm font-medium text-white">{alert.codigo}</span>
@@ -236,14 +282,20 @@ export default function AlertasPage() {
                   </td>
                   <td className="px-4 py-4">
                     <div>
-                      <p className="text-sm text-white capitalize">{tipo}</p>
-                      <p className="text-xs text-[#64748b] capitalize">{subtipo.replace("_", " ")}</p>
+                      <p className="text-sm text-white">{getAlertaTipoLabel(alert)}</p>
+                      <p className="text-xs text-[#64748b] capitalize">{subtipo || "—"}</p>
+                      {confianzaPct != null && (
+                        <p className="text-xs text-[#6366f1]">Confianza: {confianzaPct.toFixed(0)}%</p>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <p className="text-sm text-[#94a3b8] max-w-[200px] truncate">{descripcion}</p>
+                    <p className="text-sm text-[#94a3b8] max-w-[220px] truncate">{descripcion}</p>
+                    {metadatosResumen && (
+                      <p className="text-xs text-[#64748b] max-w-[220px] truncate mt-1">{metadatosResumen}</p>
+                    )}
                   </td>
-                  <td className="px-4 py-4 text-sm text-white">Milagro</td>
+                  <td className="px-4 py-4 text-sm text-white">{alert.zonaNombre ?? "—"}</td>
                   <td className="px-4 py-4">
                     <span className={`text-lg font-bold ${getSeveridadColor(severidad)}`}>
                       {severidad}
@@ -255,11 +307,16 @@ export default function AlertasPage() {
                     </span>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-sm text-[#94a3b8] capitalize">{alert.evento ? 'YAMNet' : 'Ciudadano'}</span>
+                    <span className="text-sm text-[#94a3b8]">{getAlertaGeneradaPorLabel(alert)}</span>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex gap-1">
-                      <button className="p-2 hover:bg-[#334155] rounded-lg transition-colors" title="Ver detalles">
+                      <button
+                        type="button"
+                        onClick={() => handleVerDetalle(alert)}
+                        className="p-2 hover:bg-[#334155] rounded-lg transition-colors"
+                        title="Ver detalles"
+                      >
                         <svg className="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -316,6 +373,27 @@ export default function AlertasPage() {
           </div>
         </div>
       </main>
+
+      <AlertaDetailDialog
+        alertaId={detailAlertaId}
+        preview={detailPreview}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
+  );
+}
+
+export default function AlertasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-[#94a3b8]">
+          Cargando alertas…
+        </div>
+      }
+    >
+      <AlertasPageContent />
+    </Suspense>
   );
 }
