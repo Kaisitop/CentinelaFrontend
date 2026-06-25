@@ -19,7 +19,6 @@ import {
   requestPushPermission,
 } from "@/lib/onesignal";
 import { useAuth } from "@/components/auth-provider";
-import { isPolicia } from "@/lib/roles";
 
 type PushState = "unsupported" | "loading" | "default" | "granted" | "denied";
 
@@ -84,13 +83,12 @@ export function OneSignalProvider({ children }: { children: ReactNode }) {
       }
 
       if (alertaId) {
-        const base = isPolicia(user) ? "/patrullaje-map" : "/alertas";
-        router.push(`${base}?alerta=${alertaId}`);
+        router.push(`/patrullaje?alerta=${alertaId}`);
       }
     });
 
     return removeClick;
-  }, [configured, router, user]);
+  }, [configured, router]);
 
   const enablePush = useCallback(async () => {
     if (!configured || !user?.id) return false;

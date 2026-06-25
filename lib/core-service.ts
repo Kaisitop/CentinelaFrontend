@@ -78,6 +78,15 @@ export interface HeatMapResponse {
   points: HeatMapPoint[];
 }
 
+export interface PosicionPatrullero {
+  usuarioId: string;
+  nombre: string | null;
+  latitud: number;
+  longitud: number;
+  precisionM: number | null;
+  updatedAt: string;
+}
+
 export interface Alerta {
   id: string;
   codigo: string;
@@ -240,6 +249,21 @@ export const coreService = {
 
   async getHeatMap(dias = 30): Promise<HeatMapResponse> {
     const { data } = await api.get("/analytics/heat-map", { params: { dias } });
+    return data;
+  },
+
+  async updatePosicionPatrullero(payload: {
+    latitud: number;
+    longitud: number;
+    precisionM?: number;
+    nombre?: string;
+  }): Promise<PosicionPatrullero> {
+    const { data } = await api.put("/patrullaje/posicion", payload);
+    return data;
+  },
+
+  async getPosicionesPatrulleros(maxAgeSec = 180): Promise<PosicionPatrullero[]> {
+    const { data } = await api.get("/patrullaje/posiciones", { params: { maxAgeSec } });
     return data;
   },
 };

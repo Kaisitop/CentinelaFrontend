@@ -17,7 +17,8 @@ export type RealtimeEvent =
   | "alerta.created"
   | "alerta.updated"
   | "evento.created"
-  | "evento.updated";
+  | "evento.updated"
+  | "patrullero.position";
 
 type Listener = (payload: unknown) => void;
 
@@ -28,6 +29,7 @@ const ALL_EVENTS: RealtimeEvent[] = [
   "alerta.updated",
   "evento.created",
   "evento.updated",
+  "patrullero.position",
 ];
 
 const listeners = new Map<RealtimeEvent, Set<Listener>>();

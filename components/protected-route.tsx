@@ -6,8 +6,8 @@ import { Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { isPolicia } from "@/lib/roles"
 
-const POLICIA_HOME = "/patrullaje-map"
-const ADMIN_PREFIXES = ["/", "/alertas", "/patrullaje", "/reportes"]
+const POLICIA_HOME = "/patrullaje"
+const ADMIN_PREFIXES = ["/", "/alertas", "/reportes", "/nodos-iot"]
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth()

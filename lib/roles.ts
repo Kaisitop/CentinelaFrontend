@@ -5,6 +5,6 @@ export function isPolicia(user: AuthUser | null | undefined): boolean {
 }
 
 export function getDefaultRouteForRole(rol?: string): string {
-  if (rol?.toLowerCase() === "policia") return "/patrullaje-map";
+  if (rol?.toLowerCase() === "policia") return "/patrullaje";
   return "/";
 }
