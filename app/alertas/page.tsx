@@ -17,6 +17,12 @@ import {
 } from "@/lib/alert-utils";
 import { toast } from "sonner"; // webcentinela uses sonner for toasts based on package.json
 import { AlertaDetailDialog } from "@/components/alerta-detail-dialog";
+import {
+  formatAlertaFecha,
+  getDateRangeForPreset,
+  isAlertaInDateRange,
+  type FechaPreset,
+} from "@/lib/alert-date-utils";
 
 const getEstadoColor = (estado: string) => {
   switch (estado) {
@@ -62,6 +68,9 @@ function AlertasPageContent() {
   const [filterEstado, setFilterEstado] = useState("todas");
   const [filterTipo, setFilterTipo] = useState("todos");
   const [filterSeveridad, setFilterSeveridad] = useState("todas");
+  const [filterFechaDesde, setFilterFechaDesde] = useState("");
+  const [filterFechaHasta, setFilterFechaHasta] = useState("");
+  const [fechaPreset, setFechaPreset] = useState<FechaPreset | "custom">("todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [detailAlertaId, setDetailAlertaId] = useState<string | null>(null);
@@ -128,6 +137,13 @@ function AlertasPageContent() {
     setDetailOpen(true);
   };
 
+  const applyFechaPreset = (preset: FechaPreset) => {
+    setFechaPreset(preset);
+    const { desde, hasta } = getDateRangeForPreset(preset);
+    setFilterFechaDesde(desde);
+    setFilterFechaHasta(hasta);
+  };
+
   const filteredAlerts = alertsData.filter((alert) => {
     const severidad = getAlertaSeveridad(alert);
     const tipo = getAlertaTipoUi(alert);
@@ -139,11 +155,12 @@ function AlertasPageContent() {
       (filterSeveridad === "alta" && severidad >= 4) ||
       (filterSeveridad === "media" && severidad >= 2 && severidad < 4) ||
       (filterSeveridad === "baja" && severidad < 2);
+    const matchesFecha = isAlertaInDateRange(alert, filterFechaDesde, filterFechaHasta);
     
     const matchesSearch = alert.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           subtipo.toLowerCase().includes(searchTerm.toLowerCase());
                           
-    return matchesEstado && matchesTipo && matchesSeveridad && matchesSearch;
+    return matchesEstado && matchesTipo && matchesSeveridad && matchesFecha && matchesSearch;
   });
 
   return (
@@ -208,35 +225,93 @@ function AlertasPageContent() {
                 <option value="baja">Baja (1)</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm text-[#94a3b8] mb-2">Desde</label>
+              <input
+                type="date"
+                value={filterFechaDesde}
+                onChange={(e) => {
+                  setFilterFechaDesde(e.target.value);
+                  setFechaPreset("custom");
+                }}
+                className="px-4 py-2 bg-[#0f172a] border border-[#334155] rounded-lg text-white focus:outline-none focus:border-[#6366f1] [color-scheme:dark]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[#94a3b8] mb-2">Hasta</label>
+              <input
+                type="date"
+                value={filterFechaHasta}
+                onChange={(e) => {
+                  setFilterFechaHasta(e.target.value);
+                  setFechaPreset("custom");
+                }}
+                min={filterFechaDesde || undefined}
+                className="px-4 py-2 bg-[#0f172a] border border-[#334155] rounded-lg text-white focus:outline-none focus:border-[#6366f1] [color-scheme:dark]"
+              />
+            </div>
             <div className="self-end">
               <button className="px-6 py-2 bg-[#6366f1] hover:bg-[#5558e3] text-white rounded-lg font-medium transition-colors">
                 Nueva Alerta Manual
               </button>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[#334155]">
+            <span className="text-xs text-[#64748b] self-center mr-1">Rango rápido:</span>
+            {(
+              [
+                ["todas", "Todas las fechas"],
+                ["hoy", "Hoy"],
+                ["7d", "Últimos 7 días"],
+                ["30d", "Últimos 30 días"],
+              ] as const
+            ).map(([preset, label]) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => applyFechaPreset(preset)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  fechaPreset === preset
+                    ? "bg-[#6366f1] text-white"
+                    : "bg-[#0f172a] text-[#94a3b8] border border-[#334155] hover:border-[#6366f1]/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            {(filterFechaDesde || filterFechaHasta) && (
+              <button
+                type="button"
+                onClick={() => applyFechaPreset("todas")}
+                className="px-3 py-1.5 rounded-lg text-xs text-[#94a3b8] hover:text-white"
+              >
+                Limpiar fechas
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats Summary */}
         <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
-            <p className="text-[#94a3b8] text-sm">Total</p>
-            <p className="text-2xl font-bold text-white">{alertsData.length}</p>
+            <p className="text-[#94a3b8] text-sm">Total (filtro)</p>
+            <p className="text-2xl font-bold text-white">{filteredAlerts.length}</p>
           </div>
           <div className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
             <p className="text-[#94a3b8] text-sm">Activas</p>
-            <p className="text-2xl font-bold text-[#ef4444]">{alertsData.filter(a => a.estado === "activa").length}</p>
+            <p className="text-2xl font-bold text-[#ef4444]">{filteredAlerts.filter(a => a.estado === "activa").length}</p>
           </div>
           <div className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
             <p className="text-[#94a3b8] text-sm">Reconocidas</p>
-            <p className="text-2xl font-bold text-[#f59e0b]">{alertsData.filter(a => a.estado === "reconocida").length}</p>
+            <p className="text-2xl font-bold text-[#f59e0b]">{filteredAlerts.filter(a => a.estado === "reconocida").length}</p>
           </div>
           <div className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
             <p className="text-[#94a3b8] text-sm">Cerradas</p>
-            <p className="text-2xl font-bold text-[#22c55e]">{alertsData.filter(a => a.estado === "cerrada").length}</p>
+            <p className="text-2xl font-bold text-[#22c55e]">{filteredAlerts.filter(a => a.estado === "cerrada").length}</p>
           </div>
           <div className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
             <p className="text-[#94a3b8] text-sm">Falsas Alarmas</p>
-            <p className="text-2xl font-bold text-[#64748b]">{alertsData.filter(a => a.estado === "falsa_alarma").length}</p>
+            <p className="text-2xl font-bold text-[#64748b]">{filteredAlerts.filter(a => a.estado === "falsa_alarma").length}</p>
           </div>
         </div>
 
@@ -246,6 +321,7 @@ function AlertasPageContent() {
             <thead className="bg-[#0f172a]">
               <tr>
                 <th className="px-4 py-4 text-left text-xs font-medium text-[#94a3b8] uppercase tracking-wider">Codigo</th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-[#94a3b8] uppercase tracking-wider">Fecha</th>
                 <th className="px-4 py-4 text-left text-xs font-medium text-[#94a3b8] uppercase tracking-wider">Tipo</th>
                 <th className="px-4 py-4 text-left text-xs font-medium text-[#94a3b8] uppercase tracking-wider">Descripcion</th>
                 <th className="px-4 py-4 text-left text-xs font-medium text-[#94a3b8] uppercase tracking-wider">Zona</th>
@@ -258,7 +334,13 @@ function AlertasPageContent() {
             <tbody className="divide-y divide-[#334155]">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#94a3b8]">Cargando alertas...</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-[#94a3b8]">Cargando alertas...</td>
+                </tr>
+              ) : filteredAlerts.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-[#94a3b8]">
+                    No hay alertas con los filtros seleccionados.
+                  </td>
                 </tr>
               ) : filteredAlerts.map((alert) => {
                 const tipoUi = getAlertaTipoUi(alert);
@@ -279,6 +361,9 @@ function AlertasPageContent() {
                       </div>
                       <span className="text-sm font-medium text-white">{alert.codigo}</span>
                     </div>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[#94a3b8] whitespace-nowrap">
+                    {formatAlertaFecha(alert)}
                   </td>
                   <td className="px-4 py-4">
                     <div>

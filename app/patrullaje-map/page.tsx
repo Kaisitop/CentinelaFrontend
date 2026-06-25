@@ -1,16 +1,11 @@
-import { Suspense } from "react";
-import PatrullajeMapContent from "./patrullaje-map-content";
+import { redirect } from "next/navigation";
 
-export default function PatrullajeMapPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-[#0f172a] text-[#94a3b8]">
-          Cargando mapa...
-        </div>
-      }
-    >
-      <PatrullajeMapContent />
-    </Suspense>
-  );
+type PageProps = {
+  searchParams: Promise<{ alerta?: string }>;
+};
+
+export default async function PatrullajeMapRedirectPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const q = params.alerta ? `?alerta=${encodeURIComponent(params.alerta)}` : "";
+  redirect(`/patrullaje${q}`);
 }
