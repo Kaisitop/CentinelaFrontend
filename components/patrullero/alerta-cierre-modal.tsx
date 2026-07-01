@@ -11,6 +11,7 @@ import { Alerta } from "@/lib/core-service";
 import { coreService } from "@/lib/core-service";
 import { getAlertaDescripcion, getAlertaTipoLabel } from "@/lib/alert-utils";
 import { getApiErrorMessage } from "@/lib/api";
+import { mediaService } from "@/lib/media-service";
 import { toast } from "sonner";
 
 interface AlertaCierreModalProps {
@@ -18,15 +19,6 @@ interface AlertaCierreModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
-}
-
-async function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 export function AlertaCierreModal({
@@ -51,7 +43,8 @@ export function AlertaCierreModal({
     try {
       const evidenciaUrls: string[] = [];
       if (foto) {
-        evidenciaUrls.push(await fileToDataUrl(foto));
+        const uploaded = await mediaService.uploadImage(foto, "evidencia");
+        evidenciaUrls.push(uploaded.url);
       }
 
       await coreService.cerrarAlertaPatrullero(alerta.id, {

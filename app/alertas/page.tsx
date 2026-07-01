@@ -17,6 +17,8 @@ import {
 } from "@/lib/alert-utils";
 import { toast } from "sonner"; // webcentinela uses sonner for toasts based on package.json
 import { AlertaDetailDialog } from "@/components/alerta-detail-dialog";
+import { parseMediaUrls } from "@/lib/parse-media-urls";
+import { ImageIcon } from "lucide-react";
 import {
   formatAlertaFecha,
   getDateRangeForPreset,
@@ -76,6 +78,9 @@ function AlertasPageContent() {
   const [detailAlertaId, setDetailAlertaId] = useState<string | null>(null);
   const [detailPreview, setDetailPreview] = useState<Alerta | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [modalCierre, setModalCierre] = useState<{ id: string; falsaAlarma: boolean } | null>(null);
+  const [notasCierre, setNotasCierre] = useState("");
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -111,23 +116,49 @@ function AlertasPageContent() {
   }, [alertaQuery, alertsData]);
 
   const handleReconocer = async (id: string) => {
+    setActionLoading(id);
     try {
       await coreService.reconocerAlerta(id);
       toast.success("Alerta reconocida");
       fetchAlerts();
-    } catch (e) {
+      if (detailAlertaId === id) {
+        const updated = await coreService.getAlerta(id);
+        setDetailPreview(updated);
+      }
+    } catch {
       toast.error("Error al reconocer alerta");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleCerrar = async (id: string, falsaAlarma = false) => {
+  const openModalCierre = (id: string, falsaAlarma: boolean) => {
+    setModalCierre({ id, falsaAlarma });
+    setNotasCierre("");
+  };
+
+  const handleConfirmCierre = async () => {
+    if (!modalCierre) return;
+    setActionLoading(modalCierre.id);
     try {
-      const notas = prompt("Ingrese notas de cierre (opcional):");
-      await coreService.cerrarAlerta(id, { notas: notas || undefined, falsaAlarma });
-      toast.success(falsaAlarma ? "Marcada como falsa alarma" : "Alerta cerrada");
+      await coreService.cerrarAlerta(modalCierre.id, {
+        notas: notasCierre.trim() || undefined,
+        falsaAlarma: modalCierre.falsaAlarma,
+      });
+      toast.success(
+        modalCierre.falsaAlarma ? "Marcada como falsa alarma" : "Alerta cerrada",
+      );
+      setModalCierre(null);
+      setNotasCierre("");
       fetchAlerts();
-    } catch (e) {
+      if (detailAlertaId === modalCierre.id) {
+        const updated = await coreService.getAlerta(modalCierre.id);
+        setDetailPreview(updated);
+      }
+    } catch {
       toast.error("Error al cerrar alerta");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -349,6 +380,9 @@ function AlertasPageContent() {
                 const metadatosResumen = getAlertaMetadatosResumen(alert);
                 const severidad = getAlertaSeveridad(alert);
                 const confianzaPct = getAlertaConfianzaPct(alert);
+                const mediaCount =
+                  parseMediaUrls(alert.evidenciaUrls).length +
+                  parseMediaUrls(alert.reporte?.fotosUrls).length;
                 
                 return (
                 <tr key={alert.id} className="hover:bg-[#334155]/30 transition-colors">
@@ -360,6 +394,15 @@ function AlertasPageContent() {
                         </svg>
                       </div>
                       <span className="text-sm font-medium text-white">{alert.codigo}</span>
+                      {mediaCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-[#0ea5e9]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#7dd3fc]"
+                          title="Fotos adjuntas"
+                        >
+                          <ImageIcon className="h-3 w-3" />
+                          {mediaCount}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-[#94a3b8] whitespace-nowrap">
@@ -419,14 +462,14 @@ function AlertasPageContent() {
                       {(alert.estado === "activa" || alert.estado === "reconocida") && (
                         <>
                           <button 
-                            onClick={() => handleCerrar(alert.id, false)}
+                            onClick={() => openModalCierre(alert.id, false)}
                             className="p-2 hover:bg-[#22c55e]/20 rounded-lg transition-colors" title="Cerrar">
                             <svg className="w-4 h-4 text-[#22c55e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                           </button>
                           <button 
-                            onClick={() => handleCerrar(alert.id, true)}
+                            onClick={() => openModalCierre(alert.id, true)}
                             className="p-2 hover:bg-[#ef4444]/20 rounded-lg transition-colors" title="Falsa Alarma">
                             <svg className="w-4 h-4 text-[#ef4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -464,7 +507,52 @@ function AlertasPageContent() {
         preview={detailPreview}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        actionLoading={actionLoading}
+        onReconocer={handleReconocer}
+        onCerrar={(id) => openModalCierre(id, false)}
+        onFalsaAlarma={(id) => openModalCierre(id, true)}
       />
+
+      {modalCierre && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[#334155] bg-[#1e293b] p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">
+              {modalCierre.falsaAlarma ? "Marcar falsa alarma" : "Cerrar alerta"}
+            </h3>
+            <p className="mt-1 text-sm text-[#94a3b8]">
+              Opcionalmente documenta el cierre. Las notas quedan en el historial de la alerta.
+            </p>
+            <textarea
+              value={notasCierre}
+              onChange={(e) => setNotasCierre(e.target.value)}
+              rows={4}
+              placeholder="Notas de cierre (opcional)..."
+              className="mt-4 w-full resize-none rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-sm text-white placeholder-[#64748b] focus:border-[#6366f1] focus:outline-none focus:ring-1 focus:ring-[#6366f1]"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setModalCierre(null); setNotasCierre(""); }}
+                className="flex-1 rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#334155]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCierre}
+                disabled={!!actionLoading}
+                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
+                  modalCierre.falsaAlarma
+                    ? "bg-[#ef4444] hover:bg-[#dc2626]"
+                    : "bg-[#22c55e] hover:bg-[#16a34a]"
+                }`}
+              >
+                {actionLoading ? "Procesando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

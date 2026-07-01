@@ -41,12 +41,9 @@ export default function LoginPage() {
       title="Iniciar sesión"
       subtitle="Ingresa tus credenciales para acceder al panel de control."
       footer={
-        <span>
-          ¿No tienes una cuenta?{" "}
-          <Link href="/register" className="font-medium text-[#818cf8] hover:text-[#a5b4fc]">
-            Regístrate
-          </Link>
-        </span>
+        <p className="text-xs text-[#64748b]">
+          ¿Necesitas una cuenta? Contacta al administrador del sistema.
+        </p>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

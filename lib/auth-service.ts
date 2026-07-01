@@ -26,19 +26,42 @@ export interface LoginPayload {
   password: string
 }
 
+export interface PanelUser {
+  id: string
+  email: string
+  nombre: string
+  telefono: string | null
+  rol: string
+  activo: boolean
+  emailVerificado: boolean
+  createdAt: string
+}
+
+export interface CreatePanelUserPayload {
+  email: string
+  nombre: string
+  telefono?: string
+  rolNombre: "Operador" | "Policia"
+}
+
+export interface BulkImportUsersResult {
+  total: number
+  created: number
+  skipped: number
+  failed: number
+  defaultRol: string
+  message: string
+  results: Array<{
+    row: number
+    email: string
+    nombre: string
+    status: "created" | "skipped" | "error"
+    message?: string
+  }>
+}
+
 // ---- Servicio de autenticacion (rutas /api/auth) ----
 export const authService = {
-  // POST /api/auth/register
-  async register(payload: RegisterPayload) {
-    const { data } = await api.post("/auth/register", payload)
-    if (data.tokenVerifEmail) {
-      console.log("=== TOKEN PARA VERIFICAR EMAIL (SOLO PARA PRUEBAS) ===")
-      console.log(`URL sugerida: /verify-email?token=${data.tokenVerifEmail}`)
-      console.log("Token:", data.tokenVerifEmail)
-    }
-    return data
-  },
-
   // POST /api/auth/login
   async login(payload: LoginPayload): Promise<LoginResponse> {
     const { data } = await api.post<LoginResponse>("/auth/login", payload)
@@ -78,11 +101,6 @@ export const authService = {
   // POST /api/auth/forgot-password
   async forgotPassword(email: string) {
     const { data } = await api.post("/auth/forgot-password", { email })
-    if (data.tokenResetPwd) {
-      console.log("=== TOKEN PARA RESETEAR CONTRASEÑA (SOLO PARA PRUEBAS) ===")
-      console.log(`URL sugerida: /reset-password?token=${data.tokenResetPwd}`)
-      console.log("Token:", data.tokenResetPwd)
-    }
     return data
   },
 
@@ -92,7 +110,42 @@ export const authService = {
     return data
   },
 
-  // DELETE /api/auth/user/:userId  (requiere permiso usuarios:eliminar)
+  // POST /api/auth/resend-verification
+  async resendVerification(email: string) {
+    const { data } = await api.post("/auth/resend-verification", { email })
+    return data
+  },
+
+  // POST /api/auth/users — alta de operador/policía (solo Admin)
+  async createPanelUser(payload: CreatePanelUserPayload) {
+    const { data } = await api.post("/auth/users", payload)
+    return data
+  },
+
+  // POST /api/auth/users/import — importación masiva CSV/XML (solo Admin)
+  async importPanelUsers(
+    file: File,
+    rolNombre: CreatePanelUserPayload["rolNombre"],
+  ): Promise<BulkImportUsersResult> {
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("rolNombre", rolNombre)
+
+    const { data } = await api.post<BulkImportUsersResult>("/auth/users/import", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return data
+  },
+
+  // GET /api/auth/users — listado de personal del panel (solo Admin)
+  async listPanelUsers(rol?: string): Promise<PanelUser[]> {
+    const { data } = await api.get<PanelUser[]>("/auth/users", {
+      params: rol ? { rol } : undefined,
+    })
+    return data
+  },
+
+  // DELETE /api/auth/user/:userId  (requiere permiso usuarios:update)
   async deactivateUser(userId: string) {
     const { data } = await api.delete(`/auth/user/${userId}`)
     return data
