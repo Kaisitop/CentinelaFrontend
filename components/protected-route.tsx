@@ -4,10 +4,11 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { isPolicia } from "@/lib/roles"
+import { isPolicia, isAdmin } from "@/lib/roles"
 
 const POLICIA_HOME = "/patrullaje"
 const ADMIN_PREFIXES = ["/", "/alertas", "/reportes", "/nodos-iot"]
+const ADMIN_ONLY_PREFIXES = ["/usuarios"]
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -28,6 +29,15 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         )
       if (isAdminRoute) {
         router.replace(POLICIA_HOME)
+      }
+    }
+
+    if (!isLoading && isAuthenticated && !isAdmin(user)) {
+      const isAdminOnlyRoute = ADMIN_ONLY_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      )
+      if (isAdminOnlyRoute) {
+        router.replace("/")
       }
     }
   }, [isLoading, isAuthenticated, user, router, pathname])
