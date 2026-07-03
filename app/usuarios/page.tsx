@@ -3,12 +3,13 @@
 import type React from "react"
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, UserPlus } from "lucide-react"
+import { Loader2, UserMinus, UserPlus } from "lucide-react"
 import { Sidebar } from "@/components/sidebar"
 import { ProtectedRoute } from "@/components/protected-route"
 import { authService, type CreatePanelUserPayload, type PanelUser } from "@/lib/auth-service"
 import { getApiErrorMessage } from "@/lib/api"
 import { UsuarioImportSection } from "@/components/usuarios/usuario-import-section"
+import { UsuarioBajaDialog } from "@/components/usuarios/usuario-baja-dialog"
 import { toast } from "sonner"
 
 const ROL_BADGE: Record<string, string> = {
@@ -28,6 +29,10 @@ function UsuariosContent() {
     rolNombre: "Operador",
   })
   const [filterRol, setFilterRol] = useState<"todos" | "Admin" | "Operador" | "Policia">("todos")
+  const [userToDeactivate, setUserToDeactivate] = useState<PanelUser | null>(null)
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
+
+  const currentUser = authService.getCurrentUser()
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -65,6 +70,21 @@ function UsuariosContent() {
     }
   }
 
+  const handleConfirmDeactivate = async () => {
+    if (!userToDeactivate) return
+    setDeactivatingId(userToDeactivate.id)
+    try {
+      const result = await authService.deactivateUser(userToDeactivate.id)
+      toast.success(result.message ?? "Usuario dado de baja correctamente.")
+      setUserToDeactivate(null)
+      await loadUsers()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "No se pudo dar de baja al usuario."))
+    } finally {
+      setDeactivatingId(null)
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#0f172a]">
       <Sidebar />
@@ -72,7 +92,7 @@ function UsuariosContent() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white">Gestión de usuarios</h1>
           <p className="mt-1 text-sm text-[#94a3b8]">
-            Crea cuentas de operadores y patrulleros. Recibirán un correo para establecer su contraseña.
+            Crea cuentas de operadores y patrulleros, impórtalas en lote o da de baja personal inactivo.
           </p>
         </div>
 
@@ -196,10 +216,15 @@ function UsuariosContent() {
                       <th className="px-6 py-3 font-medium">Correo</th>
                       <th className="px-6 py-3 font-medium">Rol</th>
                       <th className="px-6 py-3 font-medium">Estado</th>
+                      <th className="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
+                    {users.map((u) => {
+                      const isSelf = u.id === currentUser?.id
+                      const canDeactivate = u.activo && !isSelf
+
+                      return (
                       <tr key={u.id} className="border-b border-[#334155]/60 hover:bg-[#0f172a]/40">
                         <td className="px-6 py-3 text-white">{u.nombre}</td>
                         <td className="px-6 py-3 text-[#cbd5e1]">{u.email}</td>
@@ -219,11 +244,28 @@ function UsuariosContent() {
                             {u.activo ? "Activo" : "Inactivo"}
                           </span>
                         </td>
+                        <td className="px-6 py-3 text-right">
+                          {canDeactivate ? (
+                            <button
+                              type="button"
+                              onClick={() => setUserToDeactivate(u)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/10 px-3 py-1.5 text-xs font-medium text-[#fca5a5] transition-colors hover:bg-[#ef4444]/20"
+                              title="Dar de baja"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                              Dar de baja
+                            </button>
+                          ) : isSelf ? (
+                            <span className="text-xs text-[#64748b]">Tu cuenta</span>
+                          ) : (
+                            <span className="text-xs text-[#64748b]">—</span>
+                          )}
+                        </td>
                       </tr>
-                    ))}
+                    )})}
                     {users.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-[#64748b]">
+                        <td colSpan={5} className="px-6 py-10 text-center text-[#64748b]">
                           {filterRol === "todos"
                             ? "No hay usuarios registrados."
                             : `No hay usuarios con rol ${filterRol}.`}
@@ -236,6 +278,16 @@ function UsuariosContent() {
             )}
           </section>
         </div>
+
+        <UsuarioBajaDialog
+          user={userToDeactivate}
+          open={!!userToDeactivate}
+          loading={!!userToDeactivate && deactivatingId === userToDeactivate.id}
+          onConfirm={handleConfirmDeactivate}
+          onOpenChange={(open) => {
+            if (!open) setUserToDeactivate(null)
+          }}
+        />
       </main>
     </div>
   )

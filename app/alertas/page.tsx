@@ -17,6 +17,7 @@ import {
 } from "@/lib/alert-utils";
 import { toast } from "sonner"; // webcentinela uses sonner for toasts based on package.json
 import { AlertaDetailDialog } from "@/components/alerta-detail-dialog";
+import { AlertaCierreDialog } from "@/components/alertas/alerta-cierre-dialog";
 import { parseMediaUrls } from "@/lib/parse-media-urls";
 import { ImageIcon } from "lucide-react";
 import {
@@ -133,6 +134,7 @@ function AlertasPageContent() {
   };
 
   const openModalCierre = (id: string, falsaAlarma: boolean) => {
+    setDetailOpen(false);
     setModalCierre({ id, falsaAlarma });
     setNotasCierre("");
   };
@@ -513,46 +515,20 @@ function AlertasPageContent() {
         onFalsaAlarma={(id) => openModalCierre(id, true)}
       />
 
-      {modalCierre && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-[#334155] bg-[#1e293b] p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-white">
-              {modalCierre.falsaAlarma ? "Marcar falsa alarma" : "Cerrar alerta"}
-            </h3>
-            <p className="mt-1 text-sm text-[#94a3b8]">
-              Opcionalmente documenta el cierre. Las notas quedan en el historial de la alerta.
-            </p>
-            <textarea
-              value={notasCierre}
-              onChange={(e) => setNotasCierre(e.target.value)}
-              rows={4}
-              placeholder="Notas de cierre (opcional)..."
-              className="mt-4 w-full resize-none rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-sm text-white placeholder-[#64748b] focus:border-[#6366f1] focus:outline-none focus:ring-1 focus:ring-[#6366f1]"
-            />
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={() => { setModalCierre(null); setNotasCierre(""); }}
-                className="flex-1 rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#334155]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCierre}
-                disabled={!!actionLoading}
-                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
-                  modalCierre.falsaAlarma
-                    ? "bg-[#ef4444] hover:bg-[#dc2626]"
-                    : "bg-[#22c55e] hover:bg-[#16a34a]"
-                }`}
-              >
-                {actionLoading ? "Procesando…" : "Confirmar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertaCierreDialog
+        open={!!modalCierre}
+        falsaAlarma={modalCierre?.falsaAlarma ?? false}
+        notas={notasCierre}
+        loading={!!modalCierre && actionLoading === modalCierre.id}
+        onNotasChange={setNotasCierre}
+        onConfirm={handleConfirmCierre}
+        onOpenChange={(open) => {
+          if (!open) {
+            setModalCierre(null);
+            setNotasCierre("");
+          }
+        }}
+      />
     </div>
   );
 }
