@@ -27,6 +27,15 @@ export interface Nodo {
   activo: boolean;
 }
 
+export interface CreateNodoPayload {
+  codigo: string;
+  zonaId: string;
+  descripcion?: string;
+  latitud?: number;
+  longitud?: number;
+  versionFw?: string;
+}
+
 export interface Evento {
   id: string;
   tipo: string;
@@ -157,6 +166,11 @@ export const coreService = {
 
   async getNodo(id: string): Promise<Nodo> {
     const { data } = await api.get(`/nodos/${id}`);
+    return data;
+  },
+
+  async createNodo(payload: CreateNodoPayload): Promise<Nodo> {
+    const { data } = await api.post("/nodos", payload);
     return data;
   },
 

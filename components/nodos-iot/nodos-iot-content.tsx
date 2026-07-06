@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Plus } from "lucide-react";
 import { coreService, Zona, Nodo } from "@/lib/core-service";
+import { NodoCreateDialog } from "@/components/nodos-iot/nodo-create-dialog";
 import { toast } from "sonner";
 
 const getEstadoNodoColor = (estado: string) => {
@@ -48,6 +50,7 @@ export default function NodosIotContent() {
   const [loading, setLoading] = useState(true);
   const [selectedZonaId, setSelectedZonaId] = useState<string | null>(null);
   const [filterEstado, setFilterEstado] = useState("todos");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -176,7 +179,16 @@ export default function NodosIotContent() {
               </h2>
               <p className="text-xs text-[#64748b]">{nodosFiltrados.length} nodos</p>
             </div>
-            <div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                disabled={loading || zonas.length === 0}
+                className="flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#4f46e5] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo nodo
+              </button>
               <select
                 value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value)}
@@ -194,9 +206,21 @@ export default function NodosIotContent() {
             <div className="p-8 text-center text-[#94a3b8]">Cargando nodos...</div>
           ) : nodosFiltrados.length === 0 ? (
             <div className="p-8 text-center text-[#94a3b8]">
-              {selectedZonaId
-                ? "Esta zona no tiene nodos registrados aún."
-                : "No hay nodos que coincidan con los filtros."}
+              <p>
+                {selectedZonaId
+                  ? "Esta zona no tiene nodos registrados aún."
+                  : "No hay nodos que coincidan con los filtros."}
+              </p>
+              {!loading && zonas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4f46e5]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Registrar primer nodo
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -274,6 +298,17 @@ export default function NodosIotContent() {
           </div>
         </div>
       )}
+
+      <NodoCreateDialog
+        open={createOpen}
+        zonas={zonas}
+        defaultZonaId={selectedZonaId}
+        onOpenChange={setCreateOpen}
+        onCreated={() => {
+          toast.success("Nodo IoT registrado correctamente");
+          fetchData();
+        }}
+      />
     </>
   );
 }
