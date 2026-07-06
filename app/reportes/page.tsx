@@ -4,7 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { coreService, Reporte } from "@/lib/core-service";
+import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
+import { ReporteDetailPanel } from "@/components/reportes/reporte-detail-panel";
+import { parseMediaUrls } from "@/lib/parse-media-urls";
+import { getApiErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
+import { ImageIcon } from "lucide-react";
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
 
@@ -38,6 +43,9 @@ export default function ReportesPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState("todos");
   const [filterEstado, setFilterEstado] = useState("todos");
   const [modalNotas, setModalNotas] = useState<{ id: string; action: "resolver" | "falso" } | null>(null);
@@ -55,6 +63,33 @@ export default function ReportesPage() {
   }, []);
 
   useEffect(() => { fetchReportes(); }, [fetchReportes]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedReporte(null);
+      setDetailError(null);
+      return;
+    }
+
+    setDetailLoading(true);
+    setDetailError(null);
+
+    coreService
+      .getReporte(selectedId)
+      .then(setSelectedReporte)
+      .catch((err) =>
+        setDetailError(getApiErrorMessage(err, "No se pudo cargar el reporte")),
+      )
+      .finally(() => setDetailLoading(false));
+  }, [selectedId]);
+
+  useCentinelaRealtime({
+    "reporte.created": () => {
+      toast.info("Nuevo reporte ciudadano recibido");
+      fetchReportes();
+    },
+    "reporte.updated": () => fetchReportes(),
+  });
 
   // ─── Acciones ────────────────────────────────────────────────────────────
 
@@ -102,8 +137,6 @@ export default function ReportesPage() {
     const matchEstado = filterEstado === "todos" || r.estado === filterEstado;
     return matchTipo && matchEstado;
   });
-
-  const selected = reportes.find((r) => r.id === selectedId) ?? null;
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -195,6 +228,7 @@ export default function ReportesPage() {
                   {filtered.map((r) => {
                     const tipo = getTipo(r.tipo);
                     const estado = ESTADOS[r.estado] ?? { label: r.estado, bg: "bg-[#334155] text-[#94a3b8]" };
+                    const fotoCount = parseMediaUrls(r.fotosUrls).length;
                     return (
                       <button
                         key={r.id}
@@ -214,6 +248,12 @@ export default function ReportesPage() {
                                 {r.eventoId && (
                                   <span className="px-1.5 py-0.5 bg-[#6366f1]/20 text-[#6366f1] rounded text-[10px] font-medium">Con Alerta</span>
                                 )}
+                                {fotoCount > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#0ea5e9]/15 text-[#7dd3fc] rounded text-[10px] font-medium">
+                                    <ImageIcon className="h-3 w-3" />
+                                    {fotoCount}
+                                  </span>
+                                )}
                               </div>
                               <span className={`px-2 py-0.5 rounded text-xs font-medium ${tipo.color}`}>
                                 {tipo.label}
@@ -224,7 +264,7 @@ export default function ReportesPage() {
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${estado.bg}`}>
                               {estado.label}
                             </span>
-                            <p className="text-xs text-[#64748b] mt-2">{r.zona?.nombre ?? "Sin zona"}</p>
+                            <p className="text-xs text-[#64748b] mt-2">{r.zonaNombre ?? "Sin zona"}</p>
                           </div>
                         </div>
                         <p className="text-sm text-[#94a3b8] line-clamp-2">{r.descripcion}</p>
@@ -242,135 +282,56 @@ export default function ReportesPage() {
             </div>
 
             {/* Detail */}
-            <div className="bg-[#1e293b] rounded-xl border border-[#334155]">
-              <div className="p-4 border-b border-[#334155]">
-                <h2 className="text-lg font-semibold text-white">Detalle del Reporte</h2>
-              </div>
-
-              {selected ? (
-                <div className="p-4 space-y-4">
-                  <div>
-                    <p className="text-xs text-[#64748b] uppercase tracking-wider mb-1">ID</p>
-                    <p className="text-sm text-white font-mono break-all">{selected.id}</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS[selected.estado]?.bg ?? ""}`}>
-                      {ESTADOS[selected.estado]?.label ?? selected.estado}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getTipo(selected.tipo).color}`}>
-                      {getTipo(selected.tipo).label}
-                    </span>
-                    <span className={`text-xs font-medium ${getPrioridadColor(selected.prioridad)}`}>
-                      Prioridad {selected.prioridad}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-[#64748b] mb-1">Zona</p>
-                    <p className="text-sm text-white">{selected.zona?.nombre ?? "Sin zona asignada"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-[#64748b] mb-1">Descripción</p>
-                    <p className="text-sm text-[#94a3b8] leading-relaxed">{selected.descripcion || "—"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-[#64748b] mb-1">Fecha</p>
-                    <p className="text-sm text-white">{new Date(selected.createdAt).toLocaleString()}</p>
-                  </div>
-
-                  {selected.eventoId && (
-                    <div className="p-3 bg-[#6366f1]/10 rounded-lg border border-[#6366f1]/30">
-                      <p className="text-xs text-[#6366f1] mb-1">Evento Correlacionado</p>
-                      <p className="text-sm text-white font-mono break-all">{selected.eventoId}</p>
-                    </div>
-                  )}
-
-                  {selected.operadorId && (
-                    <div>
-                      <p className="text-xs text-[#64748b] mb-1">Operador Asignado</p>
-                      <p className="text-sm text-white font-mono">{selected.operadorId}</p>
-                    </div>
-                  )}
-
-                  {selected.notasOperador && (
-                    <div>
-                      <p className="text-xs text-[#64748b] mb-1">Notas del Operador</p>
-                      <p className="text-sm text-[#94a3b8] italic leading-relaxed">{selected.notasOperador}</p>
-                    </div>
-                  )}
-
-                  {/* Acciones según estado */}
-                  <div className="pt-2 space-y-2">
-                    {selected.estado === "PENDIENTE" && (
-                      <button
-                        disabled={actionLoading === selected.id}
-                        onClick={() => handleTomar(selected.id)}
-                        className="w-full px-4 py-2 bg-[#f59e0b] hover:bg-[#d97706] disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
-                      >
-                        {actionLoading === selected.id ? "Procesando…" : "Tomar Caso"}
-                      </button>
-                    )}
-                    {(selected.estado === "PENDIENTE" || selected.estado === "EN_PROCESO") && (
-                      <>
-                        <button
-                          disabled={actionLoading === selected.id}
-                          onClick={() => { setModalNotas({ id: selected.id, action: "resolver" }); setNotas(""); }}
-                          className="w-full px-4 py-2 bg-[#22c55e] hover:bg-[#16a34a] disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
-                        >
-                          Resolver Reporte
-                        </button>
-                        <button
-                          disabled={actionLoading === selected.id}
-                          onClick={() => { setModalNotas({ id: selected.id, action: "falso" }); setNotas(""); }}
-                          className="w-full px-4 py-2 bg-[#ef4444] hover:bg-[#dc2626] disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
-                        >
-                          Marcar como Falso
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center">
-                  <svg className="w-16 h-16 text-[#334155] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="text-[#94a3b8]">Selecciona un reporte para ver sus detalles</p>
-                </div>
-              )}
+            <div className="overflow-hidden rounded-xl border border-[#334155] bg-[#1e293b] lg:sticky lg:top-8 lg:self-start">
+              <ReporteDetailPanel
+                reporte={selectedReporte}
+                loading={detailLoading}
+                error={detailError}
+                actionLoading={actionLoading}
+                onTomar={handleTomar}
+                onResolver={(id) => {
+                  setModalNotas({ id, action: "resolver" });
+                  setNotas("");
+                }}
+                onMarcarFalso={(id) => {
+                  setModalNotas({ id, action: "falso" });
+                  setNotas("");
+                }}
+              />
             </div>
           </div>
         </main>
 
         {/* Modal de notas */}
         {modalNotas && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                {modalNotas.action === "resolver" ? "Resolver Reporte" : "Marcar como Falso"}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-[#334155] bg-[#1e293b] p-6 shadow-2xl">
+              <h3 className="text-lg font-semibold text-white">
+                {modalNotas.action === "resolver" ? "Resolver reporte" : "Marcar como falso"}
               </h3>
-              <p className="text-sm text-[#94a3b8] mb-3">Ingresa las notas de cierre (obligatorio):</p>
+              <p className="mt-1 text-sm text-[#94a3b8]">
+                Documenta el cierre del caso. Las notas quedan registradas en el historial.
+              </p>
               <textarea
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
                 rows={4}
-                placeholder="Describe la resolución del caso..."
-                className="w-full px-3 py-2 bg-[#0f172a] border border-[#334155] rounded-lg text-white text-sm placeholder-[#64748b] focus:outline-none focus:border-[#6366f1] resize-none"
+                placeholder="Describe la resolución o el motivo del cierre..."
+                className="mt-4 w-full resize-none rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-sm text-white placeholder-[#64748b] focus:border-[#6366f1] focus:outline-none focus:ring-1 focus:ring-[#6366f1]"
               />
-              <div className="flex gap-3 mt-4">
+              <div className="mt-4 flex gap-3">
                 <button
+                  type="button"
                   onClick={() => { setModalNotas(null); setNotas(""); }}
-                  className="flex-1 px-4 py-2 bg-[#0f172a] border border-[#334155] hover:bg-[#334155] text-white rounded-lg text-sm transition-colors"
+                  className="flex-1 rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#334155]"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmAction}
                   disabled={!!actionLoading}
-                  className={`flex-1 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
                     modalNotas.action === "resolver"
                       ? "bg-[#22c55e] hover:bg-[#16a34a]"
                       : "bg-[#ef4444] hover:bg-[#dc2626]"

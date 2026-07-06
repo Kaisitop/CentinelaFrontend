@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { useAuth } from "@/components/auth-provider"
+import { getDefaultRouteForRole, isPolicia } from "@/lib/roles"
+import { authService } from "@/lib/auth-service"
 import { getApiErrorMessage } from "@/lib/api"
 
 export default function LoginPage() {
@@ -25,7 +27,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login({ email, password })
-      router.push("/")
+      const user = authService.getCurrentUser()
+      router.push(getDefaultRouteForRole(user?.rol))
     } catch (err) {
       setError(getApiErrorMessage(err, "Credenciales inválidas. Verifica tu correo y contraseña."))
     } finally {
@@ -38,12 +41,9 @@ export default function LoginPage() {
       title="Iniciar sesión"
       subtitle="Ingresa tus credenciales para acceder al panel de control."
       footer={
-        <span>
-          ¿No tienes una cuenta?{" "}
-          <Link href="/register" className="font-medium text-[#818cf8] hover:text-[#a5b4fc]">
-            Regístrate
-          </Link>
-        </span>
+        <p className="text-xs text-[#64748b]">
+          ¿Necesitas una cuenta? Contacta al administrador del sistema.
+        </p>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

@@ -6,6 +6,13 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import wellknown from "wellknown";
 import { Zona, Nodo, Alerta } from "@/lib/core-service";
+import { getAlertaGeneradaPorLabel, getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
+import {
+  ensureMapMarkerStyles,
+  getAlertMapMarkerKind,
+  getAlertMapMarkerLabel,
+  getAlertMarkerIcon,
+} from "@/lib/map-markers";
 
 // Corrección de íconos por defecto de Leaflet en React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -25,33 +32,41 @@ const nodoIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-const alertaIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
 interface MapClientProps {
   zonas: Zona[];
   nodos: Nodo[];
   alertas: Alerta[];
 }
 
-const getRiesgoColor = (nivel: number) => {
-  if (nivel >= 4) return "#ef4444"; // Rojo
-  if (nivel === 3) return "#f59e0b"; // Naranja
-  if (nivel === 2) return "#eab308"; // Amarillo
-  return "#22c55e"; // Verde
+// Colores únicos por zona para evitar que se confundan al superponerse
+const ZONA_COLORS = [
+  "#6366f1", // Indigo
+  "#06b6d4", // Cyan
+  "#f59e0b", // Amber
+  "#10b981", // Emerald
+  "#ec4899", // Pink
+  "#8b5cf6", // Violet
+  "#f97316", // Orange
+  "#14b8a6", // Teal
+];
+
+const getRiesgoLabel = (nivel: number) => {
+  if (nivel >= 4) return "Crítico";
+  if (nivel === 3) return "Alto";
+  if (nivel === 2) return "Medio";
+  return "Bajo";
 };
 
 export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
-  const milagroCenter: [number, number] = [-2.14, -79.59]; // Centro aproximado de Milagro
+  const milagroCenter: [number, number] = [-2.14, -79.59];
+
+  useEffect(() => {
+    ensureMapMarkerStyles();
+  }, []);
 
   // Parsea POINT(lon lat) a [lat, lon]
-  const parsePoint = (wkt: string): [number, number] | null => {
+  const parsePoint = (wkt: string | undefined | null): [number, number] | null => {
+    if (!wkt) return null;
     try {
       const geojson = wellknown(wkt);
       if (geojson && geojson.type === "Point") {
@@ -66,7 +81,7 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
   return (
     <MapContainer 
       center={milagroCenter} 
-      zoom={13} 
+      zoom={12} 
       style={{ height: "100%", width: "100%", background: "#0f172a" }}
     >
       <TileLayer
@@ -75,13 +90,11 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
       />
 
       {/* Capa de Zonas (Polígonos) */}
-      {zonas.map((zona) => {
+      {zonas.map((zona, index) => {
         if (!zona.geomWkt) return null;
         try {
           const geojson = wellknown(zona.geomWkt);
           if (geojson && (geojson.type === "Polygon" || geojson.type === "MultiPolygon")) {
-            // Leaflet espera LatLng, GeoJSON es LngLat.
-            // Para polígonos, react-leaflet usa [lat, lng]
             let positions: any[] = [];
             
             if (geojson.type === "Polygon") {
@@ -92,21 +105,29 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
               );
             }
 
+            const color = ZONA_COLORS[index % ZONA_COLORS.length];
+
             return (
               <Polygon 
                 key={zona.id}
                 positions={positions}
                 pathOptions={{ 
-                  color: getRiesgoColor(zona.riesgoNivel), 
-                  fillColor: getRiesgoColor(zona.riesgoNivel),
-                  fillOpacity: 0.2,
-                  weight: 2
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.08,
+                  weight: 2,
+                  opacity: 0.8,
+                  dashArray: "6 4",
                 }}
               >
                 <Popup>
-                  <div className="text-sm font-semibold">{zona.nombre}</div>
-                  <div className="text-xs text-gray-500">Riesgo: Nivel {zona.riesgoNivel}</div>
-                  <div className="text-xs">{zona.descripcion}</div>
+                  <div style={{ minWidth: 160 }}>
+                    <div className="text-sm font-bold" style={{ color }}>{zona.nombre}</div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      Riesgo: <strong className="text-slate-200">{getRiesgoLabel(zona.riesgoNivel)}</strong> (Nivel {zona.riesgoNivel})
+                    </div>
+                    <div className="text-xs text-slate-300 mt-1">{zona.descripcion}</div>
+                  </div>
                 </Popup>
               </Polygon>
             );
@@ -125,8 +146,8 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
         return (
           <Marker key={nodo.id} position={pos} icon={nodoIcon}>
             <Popup>
-              <div className="text-sm font-bold text-green-700">Nodo: {nodo.codigo}</div>
-              <div className="text-xs">{nodo.descripcion}</div>
+              <div className="text-sm font-bold text-emerald-400">Nodo: {nodo.codigo}</div>
+              <div className="text-xs text-slate-300">{nodo.descripcion}</div>
             </Popup>
           </Marker>
         );
@@ -134,19 +155,32 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
 
       {/* Capa de Alertas Activas */}
       {alertas.filter(a => a.estado === "activa").map((alerta) => {
-        // En una alerta real, su ubicación viene del evento asociado o del reporte
-        const ubicacionRaw = alerta.evento?.ubicacion || alerta.reporte?.ubicacion;
-        if (!ubicacionRaw) return null;
+        let pos: [number, number] | null = null;
+        if (alerta.latitud && alerta.longitud) {
+          pos = [alerta.latitud, alerta.longitud];
+        } else {
+          const ubicacionRaw = alerta.evento?.ubicacion || alerta.reporte?.ubicacion;
+          if (ubicacionRaw) {
+            pos = parsePoint(ubicacionRaw);
+          }
+        }
 
-        const pos = parsePoint(ubicacionRaw);
         if (!pos) return null;
 
+        const kind = getAlertMapMarkerKind(alerta);
+        const subtipo = getAlertaSubtipo(alerta);
+
         return (
-          <Marker key={alerta.id} position={pos} icon={alertaIcon}>
+          <Marker key={alerta.id} position={pos} icon={getAlertMarkerIcon(alerta)}>
             <Popup>
-              <div className="text-sm font-bold text-red-600">Alerta {alerta.codigo}</div>
-              <div className="text-xs capitalize">Tipo: {alerta.evento?.tipo || alerta.reporte?.tipo} - {alerta.evento?.subtipo}</div>
-              <div className="text-xs">Estado: {alerta.estado}</div>
+              <div className="text-sm font-bold text-white">Alerta {alerta.codigo}</div>
+              <div className="text-xs font-medium text-slate-200">{getAlertMapMarkerLabel(kind)}</div>
+              {subtipo && (
+                <div className="text-xs capitalize text-slate-400">Subtipo: {subtipo}</div>
+              )}
+              {alerta.descripcion && <div className="text-xs text-slate-300">{alerta.descripcion}</div>}
+              <div className="text-xs text-slate-400">Generada por: {getAlertaGeneradaPorLabel(alerta)}</div>
+              <div className="text-xs text-slate-400">Estado: {alerta.estado}</div>
             </Popup>
           </Marker>
         );
@@ -154,3 +188,4 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
     </MapContainer>
   );
 }
+

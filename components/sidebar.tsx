@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { PushNotificationsControl } from "@/components/push-notifications-control";
+import { isAdmin } from "@/lib/roles";
 
 const navigation = [
   {
@@ -43,6 +45,12 @@ const navigation = [
     ),
   },
 ];
+
+function isNavActive(pathname: string, href: string) {
+  if (href === "#") return false;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -85,12 +93,17 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Push notifications */}
+      <div className="px-2 py-3 border-b border-[#334155]">
+        <PushNotificationsControl />
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 p-4">
         <p className="px-4 text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">Menu Principal</p>
         <ul className="space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isNavActive(pathname, item.href);
             return (
               <li key={item.name}>
                 <Link
@@ -120,10 +133,31 @@ export function Sidebar() {
 
         <p className="px-4 text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2 mt-6">Sistema</p>
         <ul className="space-y-1">
+          {isAdmin(user) && (
+            <li>
+              <Link
+                href="/usuarios"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isNavActive(pathname, "/usuarios")
+                    ? "bg-[#6366f1] text-white"
+                    : "text-[#94a3b8] hover:bg-[#334155] hover:text-white"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span className="font-medium">Usuarios</span>
+              </Link>
+            </li>
+          )}
           <li>
             <Link
-              href="#"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:bg-[#334155] hover:text-white transition-colors"
+              href="/nodos-iot"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                isNavActive(pathname, "/nodos-iot")
+                  ? "bg-[#6366f1] text-white"
+                  : "text-[#94a3b8] hover:bg-[#334155] hover:text-white"
+              }`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />

@@ -31,34 +31,60 @@ export interface Evento {
   id: string;
   tipo: string;
   subtipo: string;
-  descripcion: string | null;
+  descripcion?: string | null;
   severidad: number;
   confianza: number | null;
-  ubicacion: string;
-  zonaId: string;
+  ubicacion?: string;
+  zonaId?: string;
   nodoId: string | null;
   fuente: string;
-  audioUrl: string | null;
-  createdAt: string;
+  audioUrl?: string | null;
+  metadatos?: Record<string, unknown> | null;
+  nodoCodigo?: string | null;
+  procesado?: boolean;
+  createdAt?: string | null;
 }
 
 export interface Reporte {
   id: string;
   tipo: string;
   descripcion: string;
-  ubicacion: string;
-  zonaId: string | null;
+  ubicacion?: string;
+  zonaId?: string | null;
   zona?: { nombre: string } | null;
-  usuarioId: string | null;
-  estado: string; // PENDIENTE | EN_PROCESO | RESUELTO | FALSO
-  prioridad: number;
-  fotosUrls: string | null;
-  eventoId: string | null;
-  operadorId: string | null;
-  notasOperador: string | null;
+  usuarioId?: string | null;
+  estado?: string;
+  prioridad?: number;
+  fotosUrls?: string | null;
+  eventoId?: string | null;
+  operadorId?: string | null;
+  notasOperador?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string;
+  cerradoEn?: string | null;
+}
+
+export interface HeatMapPoint {
+  lat: number;
+  lng: number;
+  intensity: number;
+  subtipo: string;
+  confianza: number | null;
+  eventoId: string;
   createdAt: string;
+}
+
+export interface HeatMapResponse {
+  points: HeatMapPoint[];
+}
+
+export interface PosicionPatrullero {
+  usuarioId: string;
+  nombre: string | null;
+  latitud: number;
+  longitud: number;
+  precisionM: number | null;
   updatedAt: string;
-  cerradoEn: string | null;
 }
 
 export interface Alerta {
@@ -66,7 +92,7 @@ export interface Alerta {
   codigo: string;
   tipo: string;
   descripcion: string | null;
-  estado: "activa" | "reconocida" | "cerrada" | "falsa_alarma";
+  estado: "activa" | "reconocida" | "cerrada" | "falsa_alarma" | "completada";
   severidad: number;
   zonaId: string | null;
   zona?: { nombre: string } | null;
@@ -78,11 +104,17 @@ export interface Alerta {
   cerradaPor: string | null;
   cerradaEn: string | null;
   notas: string | null;
+  comentarioCierre?: string | null;
+  evidenciaUrls?: string | null;
   createdAt: string;
   updatedAt: string;
   // Relaciones anidadas
   evento?: Evento | null;
   reporte?: Reporte | null;
+  zonaNombre?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  timestamp?: number;
 }
 
 export interface RutaPatrullaje {
@@ -184,6 +216,11 @@ export const coreService = {
     return data;
   },
 
+  async getAlerta(id: string): Promise<Alerta> {
+    const { data } = await api.get(`/alertas/${id}`);
+    return data;
+  },
+
   async reconocerAlerta(id: string): Promise<Alerta> {
     const { data } = await api.post(`/alertas/${id}/reconocer`);
     return data;
@@ -191,6 +228,42 @@ export const coreService = {
 
   async cerrarAlerta(id: string, payload: { notas?: string; falsaAlarma?: boolean }): Promise<Alerta> {
     const { data } = await api.post(`/alertas/${id}/cerrar`, payload);
+    return data;
+  },
+
+  async cerrarAlertaPatrullero(
+    id: string,
+    payload: {
+      comentarioCierre: string;
+      evidenciaUrls?: string[];
+      estado?: string;
+    },
+  ): Promise<Alerta> {
+    const { data } = await api.patch(`/alertas/${id}/cerrar`, {
+      estado: payload.estado ?? "completada",
+      comentarioCierre: payload.comentarioCierre,
+      evidenciaUrls: payload.evidenciaUrls,
+    });
+    return data;
+  },
+
+  async getHeatMap(dias = 30): Promise<HeatMapResponse> {
+    const { data } = await api.get("/analytics/heat-map", { params: { dias } });
+    return data;
+  },
+
+  async updatePosicionPatrullero(payload: {
+    latitud: number;
+    longitud: number;
+    precisionM?: number;
+    nombre?: string;
+  }): Promise<PosicionPatrullero> {
+    const { data } = await api.put("/patrullaje/posicion", payload);
+    return data;
+  },
+
+  async getPosicionesPatrulleros(maxAgeSec = 180): Promise<PosicionPatrullero[]> {
+    const { data } = await api.get("/patrullaje/posiciones", { params: { maxAgeSec } });
     return data;
   },
 };

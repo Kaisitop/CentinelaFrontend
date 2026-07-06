@@ -40,3 +40,22 @@ Funciones implementadas:
 
 ## Validaciones
 Todo el proyecto fue verificado utilizando el compilador de Next.js (`npm run build`). No se detectaron errores de Typescript ni conflictos entre los tipos provenientes del API y las interfaces declaradas en el frontend.
+
+## Notificaciones push web (OneSignal)
+
+1. Crea una app **Web Push** en OneSignal y copia **App ID** + **REST API Key**.
+2. En `centinela-project/.env`:
+   ```env
+   ONESIGNAL_APP_ID=tu-app-id
+   ONESIGNAL_REST_API_KEY=tu-rest-api-key
+   DASHBOARD_URL=http://localhost:3001
+   ```
+3. En `webcentinela/.env.local`:
+   ```env
+   NEXT_PUBLIC_ONESIGNAL_APP_ID=tu-app-id
+   ```
+4. En OneSignal → Web configuration, autoriza `http://localhost:3001`.
+5. Tras login, pulsa **Activar alertas push** en la barra lateral (operador/admin) o la campana en patrullaje (policía).
+6. El backend asocia el navegador al UUID del usuario (`OneSignal.login`) y envía push con `external_id` cuando hay una alerta nueva.
+
+Flujo: `alerta.created` → `ms-notificaciones` → OneSignal REST API → notificación del sistema operativo.
