@@ -19,5 +19,9 @@ interface MapProps {
 }
 
 export default function Map(props: MapProps) {
-  return <MapClient {...props} />;
+  return (
+    <div className="h-full w-full">
+      <MapClient {...props} />
+    </div>
+  );
 }

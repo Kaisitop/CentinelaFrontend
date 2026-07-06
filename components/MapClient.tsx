@@ -2,6 +2,15 @@
 
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from "react-leaflet";
+
+function MapResize() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 0);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import wellknown from "wellknown";
@@ -79,11 +88,13 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
   };
 
   return (
-    <MapContainer 
-      center={milagroCenter} 
-      zoom={12} 
+    <MapContainer
+      center={milagroCenter}
+      zoom={12}
+      className="h-full w-full z-0"
       style={{ height: "100%", width: "100%", background: "#0f172a" }}
     >
+      <MapResize />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
