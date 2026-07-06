@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 
 // Base URL del gateway. Configurable via variable de entorno.
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.2:3000/api"
 
 // Claves de almacenamiento para los tokens
 const ACCESS_TOKEN_KEY = "centinela_access_token"
