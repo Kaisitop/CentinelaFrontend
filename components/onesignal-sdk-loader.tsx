@@ -56,7 +56,11 @@ export type OneSignalClient = {
     ): void;
   };
   User: {
-    PushSubscription: { optedIn?: boolean };
+    PushSubscription: {
+      id?: string | null;
+      optedIn?: boolean;
+      optIn?: () => Promise<void>;
+    };
   };
   Slidedown: {
     promptPush(options?: { force?: boolean }): Promise<void>;

@@ -10,13 +10,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  bindWebPushToUser,
   getPushPermission,
   isOneSignalConfigured,
   isPushSubscribed,
-  loginOneSignalUser,
   logoutOneSignalUser,
   onNotificationClick,
-  requestPushPermission,
 } from "@/lib/onesignal";
 import { useAuth } from "@/components/auth-provider";
 
@@ -61,15 +60,18 @@ export function OneSignalProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      await loginOneSignalUser(user.id);
-      if (!cancelled) {
-        await refreshPushState();
-        const permission = await getPushPermission();
-        const alreadySubscribed = await isPushSubscribed();
-        if (!alreadySubscribed && permission !== false) {
-          await requestPushPermission();
-          if (!cancelled) await refreshPushState();
-        }
+      const result = await bindWebPushToUser(user.id);
+      if (cancelled) return;
+
+      await refreshPushState();
+      console.info("[OneSignal] bindWebPushToUser", result);
+
+      if (!result.ok) {
+        console.warn(
+          "[OneSignal] Suscripción no ligada al usuario. " +
+            "Sin subscriptionId/optedIn OneSignal devolverá invalid_aliases.",
+          result,
+        );
       }
     })();
 
@@ -100,10 +102,10 @@ export function OneSignalProvider({ children }: { children: ReactNode }) {
 
   const enablePush = useCallback(async () => {
     if (!configured || !user?.id) return false;
-    await loginOneSignalUser(user.id);
-    const ok = await requestPushPermission();
+    const result = await bindWebPushToUser(user.id);
     await refreshPushState();
-    return ok;
+    console.info("[OneSignal] enablePush", result);
+    return result.ok;
   }, [configured, user?.id, refreshPushState]);
 
   useEffect(() => {
