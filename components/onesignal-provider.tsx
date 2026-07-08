@@ -62,7 +62,15 @@ export function OneSignalProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       await loginOneSignalUser(user.id);
-      if (!cancelled) await refreshPushState();
+      if (!cancelled) {
+        await refreshPushState();
+        const permission = await getPushPermission();
+        const alreadySubscribed = await isPushSubscribed();
+        if (!alreadySubscribed && permission !== false) {
+          await requestPushPermission();
+          if (!cancelled) await refreshPushState();
+        }
+      }
     })();
 
     return () => {

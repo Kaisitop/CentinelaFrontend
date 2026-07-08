@@ -99,10 +99,16 @@ export default function Dashboard() {
   }
 
   const alertasActivas = alertas.filter(a => a.estado === "activa").length;
-  
-  // Agrupar eventos por tipo para el gráfico
+
+  const hace24h = Date.now() - 24 * 60 * 60 * 1000;
+  const eventosUltimas24h = eventos.filter((e) => {
+    if (!e.createdAt) return false;
+    return new Date(e.createdAt).getTime() >= hace24h;
+  });
+
+  // Agrupar eventos por tipo (últimas 24h)
   const eventosPorTipo: Record<string, number> = {};
-  eventos.forEach(e => {
+  eventosUltimas24h.forEach((e) => {
     eventosPorTipo[e.subtipo] = (eventosPorTipo[e.subtipo] || 0) + 1;
   });
   
@@ -198,8 +204,23 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold text-white">Alertas Recientes</h2>
               <a href="/alertas" className="text-sm text-[#6366f1] hover:underline">Ver todas</a>
             </div>
-            <div className="divide-y divide-[#334155]">
-              {recentAlerts.map((alert) => (
+            <div className="divide-y divide-[#334155] flex-1">
+              {recentAlerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] border border-[#334155]">
+                    <svg className="h-6 w-6 text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#e2e8f0]">Sin alertas recientes</p>
+                    <p className="mt-1 text-xs text-[#64748b]">
+                      No se han registrado alertas en el sistema.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                recentAlerts.map((alert) => (
                 <div key={alert.id} className="p-4 hover:bg-[#334155]/30 transition-colors">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-start gap-3">
@@ -228,7 +249,8 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -238,6 +260,21 @@ export default function Dashboard() {
           {/* Eventos por Tipo */}
           <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Eventos por Tipo (Ultimas 24h)</h2>
+            {eventsByType.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#334155] bg-[#0f172a]/60 px-6 py-10 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1e293b] border border-[#334155]">
+                  <svg className="h-6 w-6 text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[#e2e8f0]">Sin eventos en las últimas 24 horas</p>
+                  <p className="mt-1 text-xs text-[#64748b]">
+                    Los nodos IoT no han detectado actividad en este período.
+                  </p>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-4">
               {eventsByType.map((evento) => (
                 <div key={evento.tipo} className="flex items-center gap-4">
@@ -255,6 +292,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+            )}
           </div>
 
           {/* Zonas por Nivel de Riesgo */}
