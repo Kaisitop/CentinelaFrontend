@@ -18,6 +18,7 @@ import {
   onNotificationClick,
 } from "@/lib/onesignal";
 import { useAuth } from "@/components/auth-provider";
+import { isPolicia } from "@/lib/roles";
 
 type PushState = "unsupported" | "loading" | "default" | "granted" | "denied";
 
@@ -87,18 +88,27 @@ export function OneSignalProvider({ children }: { children: ReactNode }) {
       const alertaId = typeof data.alertaId === "string" ? data.alertaId : null;
       const url = typeof data.url === "string" ? data.url : null;
 
+      if (isPolicia(user)) {
+        if (alertaId) {
+          router.push(`/patrullaje?alerta=${alertaId}`);
+        } else {
+          router.push("/patrullaje");
+        }
+        return;
+      }
+
       if (url && url.startsWith(window.location.origin)) {
         router.push(url.replace(window.location.origin, ""));
         return;
       }
 
       if (alertaId) {
-        router.push(`/patrullaje?alerta=${alertaId}`);
+        router.push(`/alertas?alerta=${alertaId}`);
       }
     });
 
     return removeClick;
-  }, [configured, router]);
+  }, [configured, router, user]);
 
   const enablePush = useCallback(async () => {
     if (!configured || !user?.id) return false;

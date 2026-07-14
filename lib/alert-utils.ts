@@ -57,7 +57,6 @@ export function getAlertaDescripcion(alerta: Alerta): string {
     alerta.descripcion ||
     alerta.evento?.descripcion ||
     alerta.reporte?.descripcion ||
-    alerta.notas ||
     ""
   );
 }
@@ -66,6 +65,24 @@ export function getAlertaConfianzaPct(alerta: Alerta): number | null {
   const confianza = alerta.evento?.confianza;
   if (confianza == null) return null;
   return confianza <= 1 ? confianza * 100 : confianza;
+}
+
+const ESTADOS_CERRADOS = new Set(["cerrada", "completada", "falsa_alarma"]);
+
+/** Informe del patrullero al reconocer/atender en campo. */
+export function getAlertaInformeCampo(alerta: Alerta): string | null {
+  const texto = alerta.comentarioCierre?.trim();
+  return texto || null;
+}
+
+/** Notas del operador al cerrar el caso (distintas del informe de campo). */
+export function getAlertaNotasOperador(alerta: Alerta): string | null {
+  if (!ESTADOS_CERRADOS.has(alerta.estado)) return null;
+  const notas = alerta.notas?.trim();
+  if (!notas) return null;
+  const informe = alerta.comentarioCierre?.trim();
+  if (informe && notas === informe) return null;
+  return notas;
 }
 
 export function getAlertaMetadatosResumen(alerta: Alerta): string {

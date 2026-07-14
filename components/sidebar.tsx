@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { PushNotificationsControl } from "@/components/push-notifications-control";
+import { coreService } from "@/lib/core-service";
+import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
 import { isAdmin } from "@/lib/roles";
 
 const navigation = [
@@ -24,7 +27,6 @@ const navigation = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
     ),
-    badge: 2,
   },
   {
     name: "Patrullaje",
@@ -55,6 +57,27 @@ function isNavActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [alertasAbiertas, setAlertasAbiertas] = useState(0);
+
+  const loadAlertasCount = useCallback(async () => {
+    try {
+      const alertas = await coreService.getAlertas();
+      setAlertasAbiertas(
+        alertas.filter((a) => a.estado === "activa" || a.estado === "reconocida").length,
+      );
+    } catch {
+      setAlertasAbiertas(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAlertasCount();
+  }, [loadAlertasCount]);
+
+  useCentinelaRealtime({
+    "alerta.created": () => void loadAlertasCount(),
+    "alerta.updated": () => void loadAlertasCount(),
+  });
 
   const displayName = user?.nombre || user?.email?.split("@")[0] || "Usuario";
   const initials = displayName
@@ -89,7 +112,7 @@ export function Sidebar() {
         </div>
         <div className="flex items-center gap-4 mt-2 text-xs">
           <span className="text-[#64748b]">Nodos: <span className="text-[#22c55e]">48/52</span></span>
-          <span className="text-[#64748b]">Alertas: <span className="text-[#ef4444]">2</span></span>
+          <span className="text-[#64748b]">Alertas: <span className="text-[#ef4444]">{alertasAbiertas}</span></span>
         </div>
       </div>
 
@@ -118,11 +141,11 @@ export function Sidebar() {
                     {item.icon}
                     <span className="font-medium">{item.name}</span>
                   </div>
-                  {item.badge && (
+                  {item.name === "Alertas" && alertasAbiertas > 0 && (
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       isActive ? "bg-white/20 text-white" : "bg-[#ef4444] text-white"
                     }`}>
-                      {item.badge}
+                      {alertasAbiertas}
                     </span>
                   )}
                 </Link>

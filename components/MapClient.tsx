@@ -22,6 +22,7 @@ import {
   getAlertMapMarkerLabel,
   getAlertMarkerIcon,
 } from "@/lib/map-markers";
+import { ZONA_COLORS } from "@/lib/map-markers-meta";
 
 // Corrección de íconos por defecto de Leaflet en React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -46,18 +47,6 @@ interface MapClientProps {
   nodos: Nodo[];
   alertas: Alerta[];
 }
-
-// Colores únicos por zona para evitar que se confundan al superponerse
-const ZONA_COLORS = [
-  "#6366f1", // Indigo
-  "#06b6d4", // Cyan
-  "#f59e0b", // Amber
-  "#10b981", // Emerald
-  "#ec4899", // Pink
-  "#8b5cf6", // Violet
-  "#f97316", // Orange
-  "#14b8a6", // Teal
-];
 
 const getRiesgoLabel = (nivel: number) => {
   if (nivel >= 4) return "Crítico";

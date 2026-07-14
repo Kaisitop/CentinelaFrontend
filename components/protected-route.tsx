@@ -28,7 +28,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           (p) => p === pathname || (p !== "/" && pathname.startsWith(p)),
         )
       if (isAdminRoute) {
-        router.replace(POLICIA_HOME)
+        const params = typeof window !== "undefined" ? window.location.search : ""
+        router.replace(`${POLICIA_HOME}${params}`)
       }
     }
 

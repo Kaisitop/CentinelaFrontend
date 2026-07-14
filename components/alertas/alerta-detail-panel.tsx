@@ -5,6 +5,8 @@ import {
   getAlertaConfianzaPct,
   getAlertaDescripcion,
   getAlertaGeneradaPorLabel,
+  getAlertaInformeCampo,
+  getAlertaNotasOperador,
   getAlertaSeveridad,
   getAlertaSubtipo,
   getAlertaTipoLabel,
@@ -23,6 +25,7 @@ import {
   Mic,
   PenLine,
   Radio,
+  Shield,
   ShieldAlert,
   User,
   XCircle,
@@ -240,6 +243,8 @@ export function AlertaDetailPanel({
   const severidad = getAlertaSeveridad(alerta);
   const confianzaPct = getAlertaConfianzaPct(alerta);
   const descripcion = getAlertaDescripcion(alerta);
+  const informeCampo = getAlertaInformeCampo(alerta);
+  const notasOperador = getAlertaNotasOperador(alerta);
   const zonaNombre = alerta.zonaNombre ?? alerta.zona?.nombre ?? "Sin zona asignada";
   const metadatos = alerta.evento?.metadatos as Record<string, unknown> | null | undefined;
   const isLoading = actionLoading === alerta.id;
@@ -310,6 +315,30 @@ export function AlertaDetailPanel({
             {descripcion.trim() || "Sin descripción registrada."}
           </p>
         </InfoBlock>
+
+        {informeCampo && (
+          <div className="rounded-xl border border-[#f59e0b]/25 bg-[#f59e0b]/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#fcd34d]">
+              <Shield className="h-3.5 w-3.5" />
+              Informe de campo (policía)
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#fde68a]">
+              {informeCampo}
+            </p>
+          </div>
+        )}
+
+        {notasOperador && (
+          <div className="rounded-xl border border-[#22c55e]/25 bg-[#22c55e]/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#86efac]">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Cierre del operador
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#bbf7d0]">
+              {notasOperador}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <InfoBlock icon={Calendar} label="Creada">
@@ -441,18 +470,6 @@ export function AlertaDetailPanel({
                 </p>
               )}
             </dl>
-          </div>
-        )}
-
-        {(alerta.notas || alerta.comentarioCierre) && (
-          <div className="rounded-xl border border-[#f59e0b]/25 bg-[#f59e0b]/10 p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#fcd34d]">
-              <FileText className="h-3.5 w-3.5" />
-              Notas de cierre
-            </div>
-            <p className="whitespace-pre-wrap text-sm italic leading-relaxed text-[#fde68a]">
-              {alerta.comentarioCierre || alerta.notas}
-            </p>
           </div>
         )}
 

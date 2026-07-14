@@ -192,7 +192,7 @@ function mergePatrullero(
 }
 
 export default function PatrullajeContent() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const modoPatrullero = isPolicia(user);
   const { configured: pushConfigured, subscribed: pushSubscribed, enablePush } = useOneSignalPush();
   const searchParams = useSearchParams();
@@ -211,17 +211,21 @@ export default function PatrullajeContent() {
   const gpsState = usePatrulleroGpsTracking(modoPatrullero, user?.nombre || user?.email);
 
   const loadPatrulleros = useCallback(async () => {
-    if (modoPatrullero) return;
+    if (modoPatrullero || isPolicia(user)) return;
     try {
       const rows = await coreService.getPosicionesPatrulleros(180);
       setPatrulleros(rows);
     } catch (err) {
       setPatrulleros([]);
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
+      if (
+        axios.isAxiosError(err) &&
+        err.response?.status === 403 &&
+        !isPolicia(user)
+      ) {
         toast.error("Sin permiso para ver patrulleros. Cierra sesión y vuelve a entrar.");
       }
     }
-  }, [modoPatrullero]);
+  }, [modoPatrullero, user]);
 
   const loadData = useCallback(async (silent = false) => {
     setLoading(true);
@@ -265,14 +269,17 @@ export default function PatrullajeContent() {
     }
 
     setLoading(false);
-    await loadPatrulleros();
-  }, [loadPatrulleros]);
+    if (!isPolicia(user)) {
+      await loadPatrulleros();
+    }
+  }, [loadPatrulleros, user]);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     loadData(true);
     const interval = setInterval(() => loadData(true), 60000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, authLoading, user]);
 
   useCentinelaRealtime({
     "alerta.created": () => loadData(true),

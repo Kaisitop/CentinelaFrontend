@@ -7,10 +7,13 @@ import { coreService, Zona, Nodo, Alerta, Evento, Reporte } from "@/lib/core-ser
 import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
 import {
   getAlertaConfianzaPct,
+  getAlertaInformeCampo,
+  getAlertaNotasOperador,
   getAlertaSubtipo,
   getAlertaTipoLabel,
 } from "@/lib/alert-utils";
 import Map from "@/components/Map";
+import { ZONA_COLORS } from "@/lib/map-markers-meta";
 
 const getEstadoColor = (estado: string) => {
   switch (estado) {
@@ -176,21 +179,18 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 lg:items-stretch">
           {/* Map Section */}
           <div className="lg:col-span-2 flex flex-col bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden min-h-[480px]">
-            <div className="shrink-0 p-4 border-b border-[#334155] flex items-center justify-between">
+            <div className="shrink-0 p-4 border-b border-[#334155] flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-white">Mapa de Eventos y Alertas</h2>
-              <div className="flex gap-4">
-                <span className="flex items-center gap-1 text-xs text-[#94a3b8]">
-                  <span className="w-2 h-2 rounded-full bg-[#ef4444]"></span> Disparo
-                </span>
-                <span className="flex items-center gap-1 text-xs text-[#94a3b8]">
-                  <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span> Moto
-                </span>
-                <span className="flex items-center gap-1 text-xs text-[#94a3b8]">
-                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6]"></span> Petardo
-                </span>
-                <span className="flex items-center gap-1 text-xs text-[#94a3b8]">
-                  <span className="w-3 h-3 rounded bg-[#22c55e]"></span> Nodo IoT
-                </span>
+              <div className="flex flex-wrap gap-3 justify-end">
+                {zonas.map((zona, index) => (
+                  <span key={zona.id} className="flex items-center gap-1.5 text-xs text-[#94a3b8]">
+                    <span
+                      className="w-3 h-3 rounded border border-white/20"
+                      style={{ backgroundColor: ZONA_COLORS[index % ZONA_COLORS.length] }}
+                    />
+                    {zona.nombre}
+                  </span>
+                ))}
               </div>
             </div>
             <div className="relative flex-1 min-h-[400px] bg-[#0f172a] overflow-hidden">
@@ -220,7 +220,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               ) : (
-                recentAlerts.map((alert) => (
+                recentAlerts.map((alert) => {
+                const informeCampo = getAlertaInformeCampo(alert);
+                const notasOperador = getAlertaNotasOperador(alert);
+                return (
                 <div key={alert.id} className="p-4 hover:bg-[#334155]/30 transition-colors">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-start gap-3">
@@ -240,7 +243,7 @@ export default function Dashboard() {
                       {alert.estado}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-xs mb-2">
                     <span className="text-[#94a3b8]">{new Date(alert.createdAt).toLocaleString()}</span>
                     {getAlertaConfianzaPct(alert) != null && (
                       <span className="text-[#6366f1]">
@@ -248,8 +251,19 @@ export default function Dashboard() {
                       </span>
                     )}
                   </div>
+                  {informeCampo && (
+                    <p className="text-xs text-[#fcd34d] mt-2 line-clamp-2">
+                      <span className="font-medium text-[#fbbf24]">Informe policía:</span> {informeCampo}
+                    </p>
+                  )}
+                  {notasOperador && (
+                    <p className="text-xs text-[#86efac] mt-1 line-clamp-2">
+                      <span className="font-medium text-[#4ade80]">Cierre operador:</span> {notasOperador}
+                    </p>
+                  )}
                 </div>
-                ))
+                );
+                })
               )}
             </div>
           </div>

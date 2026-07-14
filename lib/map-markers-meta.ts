@@ -130,3 +130,14 @@ export const MAP_LEGEND_ITEMS = [
   { label: "Grito", color: COLORS.grito, shape: "pin" as const },
   { label: "Patrullero", color: PATROL_COLOR, shape: "unit" as const },
 ] as const;
+
+export const ZONA_COLORS = [
+  "#6366f1",
+  "#06b6d4",
+  "#f59e0b",
+  "#10b981",
+  "#ec4899",
+  "#8b5cf6",
+  "#f97316",
+  "#14b8a6",
+] as const;

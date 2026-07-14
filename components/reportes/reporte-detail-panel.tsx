@@ -1,6 +1,12 @@
 "use client";
 
-import type { Reporte } from "@/lib/core-service";
+import { useEffect, useState } from "react";
+import type { Alerta, Reporte } from "@/lib/core-service";
+import { coreService } from "@/lib/core-service";
+import {
+  getAlertaInformeCampo,
+  getAlertaNotasOperador,
+} from "@/lib/alert-utils";
 import { parseMediaUrls } from "@/lib/parse-media-urls";
 import { MediaGallery } from "@/components/ui/media-gallery";
 import {
@@ -12,6 +18,7 @@ import {
   Flag,
   Link2,
   MapPin,
+  Shield,
   ShieldAlert,
   User,
   XCircle,
@@ -175,6 +182,28 @@ export function ReporteDetailPanel({
   onResolver,
   onMarcarFalso,
 }: ReporteDetailPanelProps) {
+  const [alertaVinculada, setAlertaVinculada] = useState<Alerta | null>(null);
+
+  useEffect(() => {
+    if (!reporte?.id) {
+      setAlertaVinculada(null);
+      return;
+    }
+    let cancelled = false;
+    coreService
+      .getAlertas()
+      .then((alertas) => {
+        if (cancelled) return;
+        setAlertaVinculada(alertas.find((a) => a.reporteId === reporte.id) ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAlertaVinculada(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reporte?.id]);
+
   if (loading && !reporte) {
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-12">
@@ -221,6 +250,10 @@ export function ReporteDetailPanel({
   const canAct =
     reporte.estado === "PENDIENTE" || reporte.estado === "EN_PROCESO";
   const fotosCiudadano = parseMediaUrls(reporte.fotosUrls);
+  const informeCampo = alertaVinculada ? getAlertaInformeCampo(alertaVinculada) : null;
+  const notasOperadorAlerta = alertaVinculada ? getAlertaNotasOperador(alertaVinculada) : null;
+  const notasReporteSolo =
+    !alertaVinculada && reporte.notasOperador?.trim() ? reporte.notasOperador.trim() : null;
 
   return (
     <div className="flex max-h-[calc(100vh-12rem)] flex-col">
@@ -275,6 +308,42 @@ export function ReporteDetailPanel({
           </p>
         </InfoBlock>
 
+        {informeCampo && (
+          <div className="rounded-xl border border-[#f59e0b]/25 bg-[#f59e0b]/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#fcd34d]">
+              <Shield className="h-3.5 w-3.5" />
+              Informe de campo (policía)
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#fde68a]">
+              {informeCampo}
+            </p>
+          </div>
+        )}
+
+        {notasOperadorAlerta && (
+          <div className="rounded-xl border border-[#22c55e]/25 bg-[#22c55e]/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#86efac]">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Cierre del operador
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#bbf7d0]">
+              {notasOperadorAlerta}
+            </p>
+          </div>
+        )}
+
+        {notasReporteSolo && (
+          <div className="rounded-xl border border-[#f59e0b]/25 bg-[#f59e0b]/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#fcd34d]">
+              <FileText className="h-3.5 w-3.5" />
+              Notas del operador
+            </div>
+            <p className="whitespace-pre-wrap text-sm italic leading-relaxed text-[#fde68a]">
+              {notasReporteSolo}
+            </p>
+          </div>
+        )}
+
         {fotosCiudadano.length > 0 && (
           <MediaGallery urls={fotosCiudadano} title="Fotos del ciudadano" />
         )}
@@ -304,18 +373,6 @@ export function ReporteDetailPanel({
           <InfoBlock icon={User} label="Operador asignado">
             <span className="font-mono text-xs">{reporte.operadorId}</span>
           </InfoBlock>
-        )}
-
-        {reporte.notasOperador && (
-          <div className="rounded-xl border border-[#f59e0b]/25 bg-[#f59e0b]/10 p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#fcd34d]">
-              <FileText className="h-3.5 w-3.5" />
-              Notas del operador
-            </div>
-            <p className="whitespace-pre-wrap text-sm italic leading-relaxed text-[#fde68a]">
-              {reporte.notasOperador}
-            </p>
-          </div>
         )}
 
         {reporte.cerradoEn && (
