@@ -121,9 +121,14 @@ function AlertasList({
                       {a.estado.replace(/_/g, " ")}
                     </span>
                   </div>
-                  {modoPatrullero && ["activa", "reconocida"].includes(a.estado) && (
+                  {modoPatrullero && a.estado === "activa" && (
                     <p className="mt-2 text-xs text-[#6366f1] font-medium">
-                      Toca para atender y cerrar con evidencia →
+                      Toca para atender con informe y evidencia →
+                    </p>
+                  )}
+                  {modoPatrullero && a.estado === "reconocida" && (
+                    <p className="mt-2 text-xs text-[#fcd34d]">
+                      Atendida — pendiente de cierre por operador
                     </p>
                   )}
                   {!modoPatrullero && (
@@ -282,7 +287,13 @@ export default function PatrullajeContent() {
 
   const handleSelectAlerta = (alerta: Alerta) => {
     setSelectedAlerta(alerta);
-    if (modoPatrullero) setCierreOpen(true);
+    if (modoPatrullero) {
+      if (alerta.estado === "activa") {
+        setCierreOpen(true);
+      } else if (alerta.estado === "reconocida") {
+        toast.info("Alerta ya reconocida. El operador cerrará el caso.");
+      }
+    }
     if (alerta.latitud != null && alerta.longitud != null) {
       setFocusPosition([alerta.latitud, alerta.longitud]);
     }

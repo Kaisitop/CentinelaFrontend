@@ -19,7 +19,17 @@ import { toast } from "sonner"; // webcentinela uses sonner for toasts based on 
 import { AlertaDetailDialog } from "@/components/alerta-detail-dialog";
 import { AlertaCierreDialog } from "@/components/alertas/alerta-cierre-dialog";
 import { parseMediaUrls } from "@/lib/parse-media-urls";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, FlaskConical } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   formatAlertaFecha,
   getDateRangeForPreset,
@@ -82,6 +92,12 @@ function AlertasPageContent() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalCierre, setModalCierre] = useState<{ id: string; falsaAlarma: boolean } | null>(null);
   const [notasCierre, setNotasCierre] = useState("");
+  const [bulkCloseOpen, setBulkCloseOpen] = useState(false);
+  const [bulkCloseLoading, setBulkCloseLoading] = useState(false);
+
+  const alertasAbiertasCount = alertsData.filter(
+    (a) => a.estado === "activa" || a.estado === "reconocida",
+  ).length;
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -170,6 +186,28 @@ function AlertasPageContent() {
     setDetailOpen(true);
   };
 
+  const handleCerrarTodasPruebas = async () => {
+    setBulkCloseLoading(true);
+    try {
+      const result = await coreService.cerrarAlertasAbiertasParaPruebas();
+      if (result.total === 0) {
+        toast.info("No hay alertas abiertas para cerrar");
+      } else if (result.errores === 0) {
+        toast.success(`Se cerraron ${result.cerradas} alerta(s)`);
+      } else {
+        toast.warning(
+          `Cerradas: ${result.cerradas}. Fallidas: ${result.errores} de ${result.total}`,
+        );
+      }
+      setBulkCloseOpen(false);
+      fetchAlerts();
+    } catch {
+      toast.error("Error al cerrar alertas en lote");
+    } finally {
+      setBulkCloseLoading(false);
+    }
+  };
+
   const applyFechaPreset = (preset: FechaPreset) => {
     setFechaPreset(preset);
     const { desde, hasta } = getDateRangeForPreset(preset);
@@ -200,9 +238,26 @@ function AlertasPageContent() {
     <div className="min-h-screen bg-[#0f172a]">
       <Sidebar />
       <main className="ml-64 p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Gestion de Alertas</h1>
-          <p className="text-[#94a3b8] mt-1">Administra el ciclo de vida de alertas: activa - reconocida - cerrada</p>
+        <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Gestion de Alertas</h1>
+            <p className="text-[#94a3b8] mt-1">Administra el ciclo de vida de alertas: activa - reconocida - cerrada</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBulkCloseOpen(true)}
+            disabled={bulkCloseLoading || alertasAbiertasCount === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm font-medium hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Herramienta de pruebas: cierra todas las alertas activas y reconocidas"
+          >
+            <FlaskConical className="h-4 w-4" />
+            Cerrar todas (pruebas)
+            {alertasAbiertasCount > 0 && (
+              <span className="rounded-full bg-amber-500/30 px-2 py-0.5 text-xs">
+                {alertasAbiertasCount}
+              </span>
+            )}
+          </button>
         </header>
 
         {/* Filters */}
@@ -529,6 +584,38 @@ function AlertasPageContent() {
           }
         }}
       />
+
+      <AlertDialog open={bulkCloseOpen} onOpenChange={setBulkCloseOpen}>
+        <AlertDialogContent className="border-[#334155] bg-[#1e293b] text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cerrar todas las alertas abiertas</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#94a3b8]">
+              Herramienta de <strong className="text-amber-200">pruebas</strong>. Se cerrarán{" "}
+              <strong className="text-white">{alertasAbiertasCount}</strong> alerta(s) en estado
+              activa o reconocida, con la nota &quot;Cierre masivo de pruebas&quot;. No usar en
+              producción.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={bulkCloseLoading}
+              className="border-[#334155] bg-transparent text-[#94a3b8] hover:bg-[#334155]"
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkCloseLoading}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleCerrarTodasPruebas();
+              }}
+              className="bg-amber-600 hover:bg-amber-500 text-white"
+            >
+              {bulkCloseLoading ? "Cerrando…" : "Sí, cerrar todas"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

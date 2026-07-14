@@ -31,11 +31,13 @@ export function AlertaCierreModal({
   const [foto, setFoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const puedeAtender = alerta?.estado === "activa";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!alerta) return;
+    if (!alerta || !puedeAtender) return;
     if (!comentario.trim()) {
-      toast.error("Escribe un comentario de cierre");
+      toast.error("Escribe el informe de lo encontrado en el sitio");
       return;
     }
 
@@ -47,19 +49,18 @@ export function AlertaCierreModal({
         evidenciaUrls.push(uploaded.url);
       }
 
-      await coreService.cerrarAlertaPatrullero(alerta.id, {
+      await coreService.atenderAlertaCampo(alerta.id, {
         comentarioCierre: comentario.trim(),
         evidenciaUrls: evidenciaUrls.length ? evidenciaUrls : undefined,
-        estado: "completada",
       });
 
-      toast.success("Alerta marcada como completada");
+      toast.success("Informe enviado. El operador cerrará el caso.");
       setComentario("");
       setFoto(null);
       onOpenChange(false);
       onCompleted();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "No se pudo cerrar la alerta"));
+      toast.error(getApiErrorMessage(err, "No se pudo enviar el informe"));
     } finally {
       setSubmitting(false);
     }
@@ -71,7 +72,7 @@ export function AlertaCierreModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#1e293b] border-[#334155] text-white sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white">Cerrar procedimiento</DialogTitle>
+          <DialogTitle className="text-white">Informe de campo</DialogTitle>
         </DialogHeader>
 
         <div className="mb-4 rounded-lg bg-[#0f172a] p-3 border border-[#334155]">
@@ -80,41 +81,53 @@ export function AlertaCierreModal({
           <p className="text-xs text-[#64748b] mt-1">{getAlertaDescripcion(alerta)}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-[#94a3b8] mb-2">
-              Reporte / comentario de cierre *
-            </label>
-            <textarea
-              value={comentario}
-              onChange={(e) => setComentario(e.target.value)}
-              rows={4}
-              placeholder="Describe lo encontrado en el sitio..."
-              className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-white placeholder:text-[#64748b] focus:border-[#6366f1] focus:outline-none"
-            />
-          </div>
+        {!puedeAtender ? (
+          <p className="text-sm text-[#fcd34d] rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-3">
+            Esta alerta ya está <strong>reconocida</strong>. El operador del centro de comando
+            la marcará como cerrada o falsa alarma.
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm text-[#94a3b8] mb-2">
+                Informe de lo encontrado *
+              </label>
+              <textarea
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                rows={4}
+                placeholder="Describe la situación en el lugar..."
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-white placeholder:text-[#64748b] focus:border-[#6366f1] focus:outline-none"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm text-[#94a3b8] mb-2">
-              Foto de evidencia (opcional)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
-              className="w-full text-sm text-[#94a3b8] file:mr-3 file:rounded file:border-0 file:bg-[#6366f1] file:px-3 file:py-2 file:text-white"
-            />
-          </div>
+            <div>
+              <label className="block text-sm text-[#94a3b8] mb-2">
+                Foto de evidencia (opcional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+                className="w-full text-sm text-[#94a3b8] file:mr-3 file:rounded file:border-0 file:bg-[#6366f1] file:px-3 file:py-2 file:text-white"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-[#22c55e] py-3 text-sm font-semibold text-white hover:bg-[#16a34a] disabled:opacity-50"
-          >
-            {submitting ? "Guardando..." : "Marcar como completada"}
-          </button>
-        </form>
+            <p className="text-xs text-[#64748b]">
+              La alerta quedará en estado <strong className="text-[#fcd34d]">reconocida</strong>.
+              No cierras el caso: el operador revisará tu informe y evidencia.
+            </p>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-lg bg-[#f59e0b] py-3 text-sm font-semibold text-white hover:bg-[#d97706] disabled:opacity-50"
+            >
+              {submitting ? "Enviando…" : "Enviar reconocimiento"}
+            </button>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -240,9 +240,42 @@ export const coreService = {
     return data;
   },
 
+  /** Patrullero: reconoce en campo con informe y evidencia (no cierra). */
+  async atenderAlertaCampo(
+    id: string,
+    payload: {
+      comentarioCierre: string;
+      evidenciaUrls?: string[];
+    },
+  ): Promise<Alerta> {
+    const { data } = await api.post(`/alertas/${id}/atender-campo`, payload);
+    return data;
+  },
+
   async cerrarAlerta(id: string, payload: { notas?: string; falsaAlarma?: boolean }): Promise<Alerta> {
     const { data } = await api.post(`/alertas/${id}/cerrar`, payload);
     return data;
+  },
+
+  /** Cierra en lote alertas activas/reconocidas — solo para pruebas locales. */
+  async cerrarAlertasAbiertasParaPruebas(
+    notas = "Cierre masivo de pruebas",
+  ): Promise<{ cerradas: number; errores: number; total: number }> {
+    const alertas = await this.getAlertas();
+    const abiertas = alertas.filter(
+      (a) => a.estado === "activa" || a.estado === "reconocida",
+    );
+    let cerradas = 0;
+    let errores = 0;
+    for (const alerta of abiertas) {
+      try {
+        await this.cerrarAlerta(alerta.id, { notas });
+        cerradas++;
+      } catch {
+        errores++;
+      }
+    }
+    return { cerradas, errores, total: abiertas.length };
   },
 
   async cerrarAlertaPatrullero(
@@ -250,15 +283,9 @@ export const coreService = {
     payload: {
       comentarioCierre: string;
       evidenciaUrls?: string[];
-      estado?: string;
     },
   ): Promise<Alerta> {
-    const { data } = await api.patch(`/alertas/${id}/cerrar`, {
-      estado: payload.estado ?? "completada",
-      comentarioCierre: payload.comentarioCierre,
-      evidenciaUrls: payload.evidenciaUrls,
-    });
-    return data;
+    return this.atenderAlertaCampo(id, payload);
   },
 
   async getHeatMap(dias = 30): Promise<HeatMapResponse> {
