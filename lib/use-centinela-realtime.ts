@@ -6,12 +6,19 @@ import { tokenStorage } from "@/lib/api";
 
 const WS_ENABLED = process.env.NEXT_PUBLIC_WS_ENABLED === "true";
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL ||
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api").replace(
-    /\/api\/?$/,
-    "",
-  );
+/** Misma origen (proxy Vercel) o URL absoluta del gateway. */
+function resolveWsUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "");
+  }
+  const api = process.env.NEXT_PUBLIC_API_URL || "/gateway";
+  // Proxy same-origin: /gateway → usar el host actual
+  if (api.startsWith("/")) {
+    if (typeof window !== "undefined") return window.location.origin;
+    return "";
+  }
+  return api.replace(/\/api\/?$/, "").replace(/\/gateway\/?$/, "");
+}
 
 export type RealtimeEvent =
   | "reporte.created"
@@ -59,9 +66,16 @@ function connectSocket() {
 
   if (socket) socket.disconnect();
 
-    socket = io(`${WS_URL}/realtime`, {
+  const WS_URL = resolveWsUrl();
+  if (!WS_URL) return;
+
+  // En proxy Vercel el upgrade WebSocket falla; polling HTTP sí pasa por rewrite.
+  const sameOriginProxy =
+    typeof window !== "undefined" && WS_URL === window.location.origin;
+
+  socket = io(`${WS_URL}/realtime`, {
     auth: { token },
-    transports: ["polling", "websocket"],
+    transports: sameOriginProxy ? ["polling"] : ["polling", "websocket"],
     reconnection: true,
     reconnectionAttempts: 10,
   });
@@ -111,5 +125,5 @@ export function useCentinelaRealtime(handlers: RealtimeHandlers) {
 }
 
 export function getWsBaseUrl() {
-  return WS_URL;
+  return resolveWsUrl();
 }

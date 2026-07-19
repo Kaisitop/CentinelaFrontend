@@ -1,7 +1,8 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 
-// Base URL del gateway. Configurable via variable de entorno.
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.2:3000/api"
+// Base URL del gateway.
+// En Vercel usa "/gateway" (rewrite HTTPS → EC2) para evitar Mixed Content.
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/gateway"
 
 // Claves de almacenamiento para los tokens
 const ACCESS_TOKEN_KEY = "centinela_access_token"
