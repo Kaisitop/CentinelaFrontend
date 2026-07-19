@@ -8,15 +8,18 @@ const WS_ENABLED = process.env.NEXT_PUBLIC_WS_ENABLED === "true";
 
 /** Misma origen (proxy Vercel) o URL absoluta del gateway. */
 function resolveWsUrl(): string {
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "");
-  }
   const api = process.env.NEXT_PUBLIC_API_URL || "/gateway";
-  // Proxy same-origin: /gateway → usar el host actual
+
+  // Con proxy /gateway siempre same-origin (ignora WS_URL http → Mixed Content).
   if (api.startsWith("/")) {
     if (typeof window !== "undefined") return window.location.origin;
     return "";
   }
+
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "");
+  }
+
   return api.replace(/\/api\/?$/, "").replace(/\/gateway\/?$/, "");
 }
 

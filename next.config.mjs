@@ -17,13 +17,9 @@ const nextConfig = {
   async rewrites() {
     if (!GATEWAY_ORIGIN) return [];
 
+    // /gateway/* lo maneja app/gateway/[...path]/route.ts (reenvía Authorization).
+    // Solo dejamos Socket.IO por rewrite (polling).
     return [
-      // Browser → HTTPS same-origin → proxy → HTTP gateway (evita Mixed Content)
-      {
-        source: "/gateway/:path*",
-        destination: `${GATEWAY_ORIGIN}/api/:path*`,
-      },
-      // Socket.IO (polling). WebSocket upgrade no funciona bien en Vercel.
       {
         source: "/socket.io/:path*",
         destination: `${GATEWAY_ORIGIN}/socket.io/:path*`,
