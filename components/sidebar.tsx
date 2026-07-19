@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Bell } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { PushNotificationsControl } from "@/components/push-notifications-control";
+import { useOneSignalPush } from "@/components/onesignal-provider";
 import { coreService } from "@/lib/core-service";
 import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
 import { isAdmin } from "@/lib/roles";
@@ -57,13 +58,16 @@ function isNavActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { configured, pushState, subscribed } = useOneSignalPush();
   const [alertasAbiertas, setAlertasAbiertas] = useState(0);
 
   const loadAlertasCount = useCallback(async () => {
     try {
       const alertas = await coreService.getAlertas();
       setAlertasAbiertas(
-        alertas.filter((a) => a.estado === "activa" || a.estado === "reconocida").length,
+        alertas.filter((a) =>
+          a.estado === "activa" || a.estado === "en_proceso" || a.estado === "reconocida",
+        ).length,
       );
     } catch {
       setAlertasAbiertas(0);
@@ -116,9 +120,17 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Push notifications */}
-      <div className="px-2 py-3 border-b border-[#334155]">
-        <PushNotificationsControl />
+      {/* Alertas push — acceso rápido a configuración */}
+      <div className="px-4 py-3 border-b border-[#334155]">
+        <Link
+          href="/configuracion#alertas"
+          className="flex items-center gap-2 text-xs text-[#94a3b8] hover:text-white transition-colors"
+        >
+          <Bell className="w-3.5 h-3.5 shrink-0" />
+          {configured && pushState === "granted" && subscribed
+            ? "Push activo · Configurar"
+            : "Configurar alertas"}
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -190,8 +202,12 @@ export function Sidebar() {
           </li>
           <li>
             <Link
-              href="#"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:bg-[#334155] hover:text-white transition-colors"
+              href="/configuracion"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                isNavActive(pathname, "/configuracion")
+                  ? "bg-[#6366f1] text-white"
+                  : "text-[#94a3b8] hover:bg-[#334155] hover:text-white"
+              }`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />

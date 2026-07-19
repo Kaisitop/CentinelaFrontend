@@ -100,13 +100,22 @@ export const authService = {
 
   // POST /api/auth/forgot-password
   async forgotPassword(email: string) {
-    const { data } = await api.post("/auth/forgot-password", { email })
+    const { data } = await api.post("/auth/forgot-password", { email, channel: "web" })
     return data
   },
 
   // POST /api/auth/reset-password
   async resetPassword(token: string, newPassword: string) {
     const { data } = await api.post("/auth/reset-password", { token, newPassword })
+    return data
+  },
+
+  // POST /api/auth/change-password
+  async changePassword(currentPassword: string, newPassword: string) {
+    const { data } = await api.post("/auth/change-password", {
+      currentPassword,
+      newPassword,
+    })
     return data
   },
 

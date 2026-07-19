@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/auth-provider'
 import { OneSignalProvider } from '@/components/onesignal-provider'
 import { OneSignalSdkLoader } from '@/components/onesignal-sdk-loader'
+import { AlertSoundListener } from '@/components/alert-sound-listener'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -43,7 +44,10 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-[#0f172a] text-[#f8fafc]">
         <OneSignalSdkLoader />
         <AuthProvider>
-          <OneSignalProvider>{children}</OneSignalProvider>
+          <OneSignalProvider>
+            <AlertSoundListener />
+            {children}
+          </OneSignalProvider>
         </AuthProvider>
         <Toaster richColors position="top-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}

@@ -1,10 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  AlertTriangle,
+  ChevronRight,
+  Cpu,
+  FileText,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  ShieldCheck,
+  Wifi,
+} from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { coreService, Zona, Nodo, Alerta, Evento, Reporte } from "@/lib/core-service";
 import { useCentinelaRealtime } from "@/lib/use-centinela-realtime";
+import { useRefreshInterval } from "@/lib/use-user-preferences";
 import {
   getAlertaConfianzaPct,
   getAlertaInformeCampo,
@@ -15,31 +29,50 @@ import {
 import Map from "@/components/Map";
 import { ZONA_COLORS } from "@/lib/map-markers-meta";
 
-const getEstadoColor = (estado: string) => {
-  switch (estado) {
-    case "activa": return "bg-[#ef4444] text-white";
-    case "reconocida": return "bg-[#f59e0b] text-white";
-    case "cerrada": return "bg-[#22c55e] text-white";
-    case "falsa_alarma": return "bg-[#64748b] text-white";
-    default: return "bg-[#334155] text-[#94a3b8]";
-  }
+const ESTADO_UI: Record<string, { label: string; className: string; dot: string }> = {
+  activa: { label: "Activa", className: "bg-[#ef4444]/15 text-[#fca5a5] ring-1 ring-[#ef4444]/30", dot: "bg-[#ef4444]" },
+  en_proceso: { label: "En camino", className: "bg-[#0ea5e9]/15 text-[#7dd3fc] ring-1 ring-[#0ea5e9]/30", dot: "bg-[#0ea5e9]" },
+  reconocida: { label: "Reconocida", className: "bg-[#f59e0b]/15 text-[#fcd34d] ring-1 ring-[#f59e0b]/30", dot: "bg-[#f59e0b]" },
+  cerrada: { label: "Cerrada", className: "bg-[#22c55e]/15 text-[#86efac] ring-1 ring-[#22c55e]/30", dot: "bg-[#22c55e]" },
+  completada: { label: "Completada", className: "bg-[#22c55e]/15 text-[#86efac] ring-1 ring-[#22c55e]/30", dot: "bg-[#22c55e]" },
+  falsa_alarma: { label: "Falsa alarma", className: "bg-[#64748b]/15 text-[#cbd5e1] ring-1 ring-[#64748b]/30", dot: "bg-[#64748b]" },
 };
 
-const getSubtipoIcon = (subtipo: string) => {
-  switch (subtipo) {
-    case "disparo": return "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
-    case "moto_sin_silenciador": return "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4";
-    case "petardo": return "M13 10V3L4 14h7v7l9-11h-7z";
-    case "fuego_artificial": return "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z";
-    default: return "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z";
-  }
-};
+const EVENT_BAR_COLORS = ["#ef4444", "#f59e0b", "#8b5cf6", "#6366f1", "#22c55e", "#0ea5e9"];
 
-const getRiesgoColor = (nivel: number) => {
-  if (nivel >= 4) return "text-[#ef4444] bg-[#ef4444]/20";
-  if (nivel >= 3) return "text-[#f59e0b] bg-[#f59e0b]/20";
-  return "text-[#22c55e] bg-[#22c55e]/20";
-};
+function formatRelativeTime(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "hace instantes";
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH} h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return "ayer";
+  if (diffD < 7) return `hace ${diffD} días`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function severidadColor(severidad: number) {
+  if (severidad >= 4) return "#ef4444";
+  if (severidad >= 3) return "#f59e0b";
+  return "#22c55e";
+}
+
+function RiskLevelBar({ nivel, max = 5 }: { nivel: number; max?: number }) {
+  const color = nivel >= 4 ? "#ef4444" : nivel >= 3 ? "#f59e0b" : "#22c55e";
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: max }, (_, i) => (
+        <span
+          key={i}
+          className="h-1.5 w-4 rounded-full transition-colors"
+          style={{ backgroundColor: i < nivel ? color : "#334155" }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [zonas, setZonas] = useState<Zona[]>([]);
@@ -48,8 +81,11 @@ export default function Dashboard() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
+    setRefreshing(true);
     const results = await Promise.allSettled([
       coreService.getZonas(),
       coreService.getNodos(),
@@ -76,11 +112,15 @@ export default function Dashboard() {
     else console.error("GET /reportes:", r.reason);
 
     setLoading(false);
+    setRefreshing(false);
+    setLastUpdated(new Date());
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useRefreshInterval(() => void fetchData());
 
   useCentinelaRealtime({
     "reporte.created": () => fetchData(),
@@ -94,14 +134,18 @@ export default function Dashboard() {
   if (loading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white">
-          Cargando métricas...
+        <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center gap-3 text-[#94a3b8]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#6366f1]" />
+          <p className="text-sm">Cargando métricas del sistema…</p>
         </div>
       </ProtectedRoute>
     );
   }
 
-  const alertasActivas = alertas.filter(a => a.estado === "activa").length;
+  const alertasActivas = alertas.filter((a) => a.estado === "activa").length;
+  const alertasEnCamino = alertas.filter((a) => a.estado === "en_proceso").length;
+  const alertasReconocidas = alertas.filter((a) => a.estado === "reconocida").length;
+  const alertasAbiertas = alertasActivas + alertasEnCamino + alertasReconocidas;
 
   const hace24h = Date.now() - 24 * 60 * 60 * 1000;
   const eventosUltimas24h = eventos.filter((e) => {
@@ -109,226 +153,387 @@ export default function Dashboard() {
     return new Date(e.createdAt).getTime() >= hace24h;
   });
 
-  // Agrupar eventos por tipo (últimas 24h)
+  const hace5min = Date.now() - 5 * 60 * 1000;
+  const nodosOnline = nodos.filter(
+    (n) => n.ultimoHeartbeat && new Date(n.ultimoHeartbeat).getTime() >= hace5min,
+  ).length;
+
+  const reportesPendientes = reportes.filter(
+    (r) => (r.estado ?? "").toLowerCase() === "pendiente",
+  ).length;
+
   const eventosPorTipo: Record<string, number> = {};
   eventosUltimas24h.forEach((e) => {
     eventosPorTipo[e.subtipo] = (eventosPorTipo[e.subtipo] || 0) + 1;
   });
-  
-  const eventsByType = Object.entries(eventosPorTipo).map(([subtipo, cantidad], idx) => {
-    const colors = ["#ef4444", "#f59e0b", "#8b5cf6", "#6366f1", "#22c55e"];
-    return { tipo: subtipo.replace("_", " "), cantidad, color: colors[idx % colors.length] };
-  });
+
+  const eventsByType = Object.entries(eventosPorTipo)
+    .sort(([, a], [, b]) => b - a)
+    .map(([subtipo, cantidad], idx) => ({
+      tipo: subtipo.replace(/_/g, " "),
+      cantidad,
+      color: EVENT_BAR_COLORS[idx % EVENT_BAR_COLORS.length],
+    }));
+  const maxEventCount = Math.max(1, ...eventsByType.map((e) => e.cantidad));
 
   const stats = [
-    { label: "Eventos Detectados", value: eventos.length, change: "Total", icon: "wave", color: "#6366f1" },
-    { label: "Alertas Activas", value: alertasActivas, change: "Hoy", icon: "alert", color: "#ef4444" },
-    { label: "Nodos IoT", value: nodos.length, change: "Instalados", icon: "cpu", color: "#22c55e" },
-    { label: "Reportes Ciudadanos", value: reportes.length, change: "Recibidos", icon: "document", color: "#f59e0b" },
+    {
+      label: "Eventos detectados",
+      value: eventos.length,
+      detail: `${eventosUltimas24h.length} en las últimas 24 h`,
+      icon: Activity,
+      color: "#6366f1",
+      href: "/eventos",
+    },
+    {
+      label: "Alertas abiertas",
+      value: alertasAbiertas,
+      detail:
+        alertasAbiertas === 0
+          ? "Sin casos pendientes"
+          : `${alertasActivas} activas · ${alertasEnCamino} en camino · ${alertasReconocidas} reconocidas`,
+      icon: AlertTriangle,
+      color: alertasAbiertas > 0 ? "#ef4444" : "#22c55e",
+      href: "/alertas",
+      pulse: alertasActivas > 0,
+    },
+    {
+      label: "Nodos IoT",
+      value: nodos.length,
+      detail: `${nodosOnline} en línea (últimos 5 min)`,
+      icon: Cpu,
+      color: "#22c55e",
+      href: "/patrullaje",
+    },
+    {
+      label: "Reportes ciudadanos",
+      value: reportes.length,
+      detail:
+        reportesPendientes > 0
+          ? `${reportesPendientes} pendientes de atender`
+          : "Todos gestionados",
+      icon: FileText,
+      color: "#f59e0b",
+      href: "/reportes",
+    },
   ];
 
-  const recentAlerts = alertas.slice(0, 5); // Tomamos las últimas 5 (el backend suele devolverlas ordenadas desc)
+  const recentAlerts = alertas.slice(0, 5);
+  const zonasOrdenadas = [...zonas].sort((a, b) => b.riesgoNivel - a.riesgoNivel);
 
   return (
     <ProtectedRoute>
-    <div className="min-h-screen bg-[#0f172a]">
-      <Sidebar />
-      <main className="ml-64 p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Dashboard CENTINELA</h1>
-          <p className="text-[#94a3b8] mt-1">Sistema de Seguridad Ciudadana - Milagro, Ecuador</p>
-        </header>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-[#1e293b] rounded-xl p-6 border border-[#334155]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${stat.color}20` }}>
-                  {stat.icon === "wave" && (
-                    <svg className="w-6 h-6" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                  )}
-                  {stat.icon === "alert" && (
-                    <svg className="w-6 h-6" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  )}
-                  {stat.icon === "cpu" && (
-                    <svg className="w-6 h-6" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                    </svg>
-                  )}
-                  {stat.icon === "document" && (
-                    <svg className="w-6 h-6" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                </div>
-                <span className={`text-sm font-medium ${stat.change.startsWith("+") ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
-                  {stat.change}
+      <div className="min-h-screen bg-[#0f172a]">
+        <Sidebar />
+        <main className="ml-64 p-8">
+          {/* Header */}
+          <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-white">Dashboard CENTINELA</h1>
+                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-[#22c55e]/10 px-2.5 py-1 text-[11px] font-medium text-[#86efac] ring-1 ring-[#22c55e]/25">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22c55e] opacity-60" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                  </span>
+                  En vivo
                 </span>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-1">{stat.value}</h3>
-              <p className="text-[#94a3b8] text-sm">{stat.label}</p>
+              <p className="mt-1 text-[#94a3b8]">
+                Sistema de Seguridad Ciudadana — Milagro, Ecuador
+              </p>
             </div>
-          ))}
-        </div>
+            <div className="flex items-center gap-3">
+              {lastUpdated && (
+                <span className="text-xs text-[#64748b]">
+                  Actualizado {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => fetchData()}
+                disabled={refreshing}
+                className="flex items-center gap-2 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-2 text-sm text-[#94a3b8] transition-colors hover:border-[#6366f1]/50 hover:text-white disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                Actualizar
+              </button>
+            </div>
+          </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 lg:items-stretch">
-          {/* Map Section */}
-          <div className="lg:col-span-2 flex flex-col bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden min-h-[480px]">
-            <div className="shrink-0 p-4 border-b border-[#334155] flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-white">Mapa de Eventos y Alertas</h2>
-              <div className="flex flex-wrap gap-3 justify-end">
-                {zonas.map((zona, index) => (
-                  <span key={zona.id} className="flex items-center gap-1.5 text-xs text-[#94a3b8]">
-                    <span
-                      className="w-3 h-3 rounded border border-white/20"
-                      style={{ backgroundColor: ZONA_COLORS[index % ZONA_COLORS.length] }}
-                    />
-                    {zona.nombre}
-                  </span>
-                ))}
+          {/* Stats Grid */}
+          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Link
+                  key={stat.label}
+                  href={stat.href}
+                  className="group relative overflow-hidden rounded-xl border border-[#334155] bg-[#1e293b] p-6 transition-all hover:-translate-y-0.5 hover:border-[#475569] hover:shadow-lg hover:shadow-black/20"
+                >
+                  <div
+                    className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-[0.07] blur-2xl transition-opacity group-hover:opacity-[0.14]"
+                    style={{ backgroundColor: stat.color }}
+                  />
+                  <div className="mb-4 flex items-center justify-between">
+                    <div
+                      className="relative flex h-12 w-12 items-center justify-center rounded-xl ring-1"
+                      style={{
+                        backgroundColor: `${stat.color}1a`,
+                        // @ts-expect-error CSS var for ring color
+                        "--tw-ring-color": `${stat.color}40`,
+                      }}
+                    >
+                      <Icon className="h-6 w-6" style={{ color: stat.color }} />
+                      {stat.pulse && (
+                        <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ef4444] opacity-60" />
+                          <span className="relative inline-flex h-3 w-3 rounded-full bg-[#ef4444]" />
+                        </span>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-[#475569] transition-transform group-hover:translate-x-0.5 group-hover:text-[#94a3b8]" />
+                  </div>
+                  <h3 className="text-3xl font-bold tracking-tight text-white">{stat.value}</h3>
+                  <p className="mt-1 text-sm font-medium text-[#e2e8f0]">{stat.label}</p>
+                  <p className="mt-1.5 text-xs text-[#64748b]">{stat.detail}</p>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-stretch">
+            {/* Map Section */}
+            <div className="flex min-h-[480px] flex-col overflow-hidden rounded-xl border border-[#334155] bg-[#1e293b] lg:col-span-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#334155] p-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-[#6366f1]" />
+                  <h2 className="text-lg font-semibold text-white">Mapa de eventos y alertas</h2>
+                </div>
+                <div className="flex flex-wrap justify-end gap-3">
+                  {zonas.map((zona, index) => (
+                    <span key={zona.id} className="flex items-center gap-1.5 text-xs text-[#94a3b8]">
+                      <span
+                        className="h-3 w-3 rounded border border-white/20"
+                        style={{ backgroundColor: ZONA_COLORS[index % ZONA_COLORS.length] }}
+                      />
+                      {zona.nombre}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="relative min-h-[400px] flex-1 overflow-hidden bg-[#0f172a]">
+                <Map zonas={zonas} nodos={nodos} alertas={alertas} />
               </div>
             </div>
-            <div className="relative flex-1 min-h-[400px] bg-[#0f172a] overflow-hidden">
-              <Map zonas={zonas} nodos={nodos} alertas={alertas} />
+
+            {/* Alertas Recientes */}
+            <div className="flex flex-col rounded-xl border border-[#334155] bg-[#1e293b]">
+              <div className="flex items-center justify-between border-b border-[#334155] p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-[#f59e0b]" />
+                  <h2 className="text-lg font-semibold text-white">Alertas recientes</h2>
+                </div>
+                <Link
+                  href="/alertas"
+                  className="flex items-center gap-0.5 text-sm text-[#6366f1] hover:text-[#818cf8]"
+                >
+                  Ver todas
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              <div className="flex-1 divide-y divide-[#334155] overflow-y-auto">
+                {recentAlerts.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10">
+                      <ShieldCheck className="h-6 w-6 text-[#4ade80]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[#e2e8f0]">Todo en orden</p>
+                      <p className="mt-1 text-xs text-[#64748b]">
+                        No se han registrado alertas en el sistema.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  recentAlerts.map((alert) => {
+                    const informeCampo = getAlertaInformeCampo(alert);
+                    const notasOperador = getAlertaNotasOperador(alert);
+                    const estadoUi = ESTADO_UI[alert.estado] ?? {
+                      label: alert.estado,
+                      className: "bg-[#334155] text-[#94a3b8]",
+                      dot: "bg-[#64748b]",
+                    };
+                    const confianza = getAlertaConfianzaPct(alert);
+                    return (
+                      <Link
+                        key={alert.id}
+                        href={`/alertas?alerta=${alert.id}`}
+                        className="block p-4 transition-colors hover:bg-[#334155]/30"
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span
+                              className="mt-1 h-8 w-1 shrink-0 rounded-full"
+                              style={{ backgroundColor: severidadColor(alert.severidad) }}
+                              title={`Severidad ${alert.severidad}`}
+                            />
+                            <div className="min-w-0">
+                              <h3 className="truncate font-mono text-sm font-semibold text-white">
+                                {alert.codigo}
+                              </h3>
+                              <p className="truncate text-xs capitalize text-[#94a3b8]">
+                                {getAlertaSubtipo(alert) || getAlertaTipoLabel(alert)}
+                                {alert.zonaNombre ? ` · ${alert.zonaNombre}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${estadoUi.className}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${estadoUi.dot}`} />
+                            {estadoUi.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pl-4 text-xs">
+                          <span className="text-[#64748b]" title={new Date(alert.createdAt).toLocaleString()}>
+                            {formatRelativeTime(alert.createdAt)}
+                          </span>
+                          {confianza != null && (
+                            <span className="text-[#818cf8]">IA {confianza.toFixed(0)}%</span>
+                          )}
+                        </div>
+                        {informeCampo && (
+                          <p className="mt-2 line-clamp-2 pl-4 text-xs text-[#fcd34d]">
+                            <span className="font-medium text-[#fbbf24]">Informe policía:</span>{" "}
+                            {informeCampo}
+                          </p>
+                        )}
+                        {notasOperador && (
+                          <p className="mt-1 line-clamp-2 pl-4 text-xs text-[#86efac]">
+                            <span className="font-medium text-[#4ade80]">Cierre operador:</span>{" "}
+                            {notasOperador}
+                          </p>
+                        )}
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Alertas Recientes */}
-          <div className="flex flex-col bg-[#1e293b] rounded-xl border border-[#334155]">
-            <div className="p-4 border-b border-[#334155] flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Alertas Recientes</h2>
-              <a href="/alertas" className="text-sm text-[#6366f1] hover:underline">Ver todas</a>
-            </div>
-            <div className="divide-y divide-[#334155] flex-1">
-              {recentAlerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] border border-[#334155]">
-                    <svg className="h-6 w-6 text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+          {/* Bottom Section */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {/* Eventos por Tipo */}
+            <div className="rounded-xl border border-[#334155] bg-[#1e293b] p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-[#6366f1]" />
+                  <h2 className="text-lg font-semibold text-white">Eventos por tipo</h2>
+                </div>
+                <span className="rounded-full bg-[#0f172a] px-2.5 py-1 text-[11px] text-[#64748b] ring-1 ring-[#334155]">
+                  Últimas 24 h
+                </span>
+              </div>
+              {eventsByType.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#334155] bg-[#0f172a]/60 px-6 py-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#334155] bg-[#1e293b]">
+                    <Activity className="h-6 w-6 text-[#64748b]" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#e2e8f0]">Sin alertas recientes</p>
+                    <p className="text-sm font-medium text-[#e2e8f0]">
+                      Sin eventos en las últimas 24 horas
+                    </p>
                     <p className="mt-1 text-xs text-[#64748b]">
-                      No se han registrado alertas en el sistema.
+                      Los nodos IoT no han detectado actividad en este período.
                     </p>
                   </div>
                 </div>
               ) : (
-                recentAlerts.map((alert) => {
-                const informeCampo = getAlertaInformeCampo(alert);
-                const notasOperador = getAlertaNotasOperador(alert);
-                return (
-                <div key={alert.id} className="p-4 hover:bg-[#334155]/30 transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#0f172a] flex items-center justify-center">
-                        <svg className="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getSubtipoIcon(alert.evento?.subtipo ?? "")} />
-                        </svg>
+                <div className="space-y-4">
+                  {eventsByType.map((evento) => (
+                    <div key={evento.tipo} className="flex items-center gap-4">
+                      <div className="w-32 truncate text-sm capitalize text-[#94a3b8]" title={evento.tipo}>
+                        {evento.tipo}
                       </div>
-                      <div>
-                        <h3 className="font-medium text-white text-sm">{alert.codigo}</h3>
-                        <p className="text-xs text-[#94a3b8] capitalize">
-                          {getAlertaSubtipo(alert) || getAlertaTipoLabel(alert)}
-                        </p>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#0f172a]">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${(evento.cantidad / maxEventCount) * 100}%`,
+                            backgroundColor: evento.color,
+                          }}
+                        />
+                      </div>
+                      <div className="w-12 text-right text-sm font-semibold tabular-nums text-white">
+                        {evento.cantidad}
                       </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(alert.estado)}`}>
-                      {alert.estado}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-[#94a3b8]">{new Date(alert.createdAt).toLocaleString()}</span>
-                    {getAlertaConfianzaPct(alert) != null && (
-                      <span className="text-[#6366f1]">
-                        Conf: {getAlertaConfianzaPct(alert)!.toFixed(0)}%
-                      </span>
-                    )}
-                  </div>
-                  {informeCampo && (
-                    <p className="text-xs text-[#fcd34d] mt-2 line-clamp-2">
-                      <span className="font-medium text-[#fbbf24]">Informe policía:</span> {informeCampo}
-                    </p>
-                  )}
-                  {notasOperador && (
-                    <p className="text-xs text-[#86efac] mt-1 line-clamp-2">
-                      <span className="font-medium text-[#4ade80]">Cierre operador:</span> {notasOperador}
-                    </p>
-                  )}
+                  ))}
                 </div>
-                );
-                })
+              )}
+            </div>
+
+            {/* Zonas por Nivel de Riesgo */}
+            <div className="rounded-xl border border-[#334155] bg-[#1e293b] p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-[#f59e0b]" />
+                <h2 className="text-lg font-semibold text-white">Zonas — nivel de riesgo</h2>
+              </div>
+              {zonasOrdenadas.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#334155] bg-[#0f172a]/60 px-6 py-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#334155] bg-[#1e293b]">
+                    <MapPin className="h-6 w-6 text-[#64748b]" />
+                  </div>
+                  <p className="text-sm font-medium text-[#e2e8f0]">No hay zonas registradas</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {zonasOrdenadas.map((zona) => (
+                    <div
+                      key={zona.id}
+                      className="flex items-center justify-between gap-4 rounded-lg border border-[#334155]/50 bg-[#0f172a] p-3 transition-colors hover:border-[#334155]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-white">{zona.nombre}</p>
+                        {zona.descripcion && (
+                          <p className="mt-0.5 truncate text-xs text-[#64748b]">{zona.descripcion}</p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <RiskLevelBar nivel={zona.riesgoNivel} />
+                        <span className="text-[11px] text-[#64748b]">
+                          Riesgo {zona.riesgoNivel}/5
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Eventos por Tipo */}
-          <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Eventos por Tipo (Ultimas 24h)</h2>
-            {eventsByType.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#334155] bg-[#0f172a]/60 px-6 py-10 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1e293b] border border-[#334155]">
-                  <svg className="h-6 w-6 text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[#e2e8f0]">Sin eventos en las últimas 24 horas</p>
-                  <p className="mt-1 text-xs text-[#64748b]">
-                    Los nodos IoT no han detectado actividad en este período.
-                  </p>
-                </div>
-              </div>
-            ) : (
-            <div className="space-y-4">
-              {eventsByType.map((evento) => (
-                <div key={evento.tipo} className="flex items-center gap-4">
-                  <div className="w-32 text-sm text-[#94a3b8]">{evento.tipo}</div>
-                  <div className="flex-1 h-6 bg-[#0f172a] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full transition-all" 
-                      style={{ 
-                        width: `${(evento.cantidad / 200) * 100}%`, 
-                        backgroundColor: evento.color 
-                      }}
-                    ></div>
-                  </div>
-                  <div className="w-12 text-right text-sm font-medium text-white">{evento.cantidad}</div>
-                </div>
-              ))}
-            </div>
-            )}
+          {/* Footer status strip */}
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#334155] bg-[#1e293b] px-5 py-3 text-xs text-[#64748b]">
+            <span className="flex items-center gap-1.5">
+              <Wifi className="h-3.5 w-3.5 text-[#22c55e]" />
+              {nodosOnline}/{nodos.length} nodos en línea
+            </span>
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-[#f59e0b]" />
+              {alertasAbiertas} caso{alertasAbiertas === 1 ? "" : "s"} abierto{alertasAbiertas === 1 ? "" : "s"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-[#6366f1]" />
+              {reportesPendientes} reporte{reportesPendientes === 1 ? "" : "s"} pendiente{reportesPendientes === 1 ? "" : "s"}
+            </span>
+            <span className="ml-auto">
+              {zonas.length} zona{zonas.length === 1 ? "" : "s"} monitoreada{zonas.length === 1 ? "" : "s"} · Milagro, Ecuador
+            </span>
           </div>
-
-          {/* Zonas por Nivel de Riesgo */}
-          <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Zonas - Nivel de Riesgo</h2>
-            <div className="space-y-3">
-              {zonas.map((zona) => (
-                <div key={zona.id} className="flex items-center justify-between p-3 bg-[#0f172a] rounded-lg border border-[#334155]/50">
-                  <div>
-                    <p className="text-white font-medium">{zona.nombre}</p>
-                    <p className="text-xs text-[#64748b]">Nivel de Riesgo {zona.riesgoNivel}</p>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-semibold ${getRiesgoColor(zona.riesgoNivel)}`}>
-                    Nivel {zona.riesgoNivel}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
     </ProtectedRoute>
   );
 }

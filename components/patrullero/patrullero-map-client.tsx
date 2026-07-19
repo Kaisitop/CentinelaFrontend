@@ -14,6 +14,8 @@ import {
   MAP_LEGEND_ITEMS,
 } from "@/lib/map-markers";
 import { getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
+import { AlertRouteLayer } from "@/components/patrullero/alert-route-layer";
+import type { DrivingRoute, RoutePoint } from "@/lib/routing";
 
 function FlyToPosition({ position }: { position: [number, number] | null }) {
   const map = useMap();
@@ -37,9 +39,16 @@ interface PatrulleroMapClientProps {
   selectedAlerta?: Alerta | null;
   selectedAlertaId?: string | null;
   onSelectAlerta: (alerta: Alerta) => void;
+  onNavigateToAlerta?: (alerta: Alerta) => void;
   userLocation: [number, number] | null;
   focusPosition?: [number, number] | null;
   showOwnLocation?: boolean;
+  ownLocationLabel?: string;
+  ownLocationPrecisionM?: number;
+  routeFrom?: RoutePoint | null;
+  routeTo?: RoutePoint | null;
+  onRouteChange?: (route: DrivingRoute | null) => void;
+  onRouteError?: (message: string) => void;
 }
 
 export default function PatrulleroMapClient({
@@ -49,15 +58,25 @@ export default function PatrulleroMapClient({
   selectedAlerta = null,
   selectedAlertaId,
   onSelectAlerta,
+  onNavigateToAlerta,
   userLocation,
   focusPosition = null,
   showOwnLocation = true,
+  ownLocationLabel = "Tu ubicación",
+  ownLocationPrecisionM,
+  routeFrom = null,
+  routeTo = null,
+  onRouteChange,
+  onRouteError,
 }: PatrulleroMapClientProps) {
   useEffect(() => {
     ensureMapMarkerStyles();
   }, []);
 
   const center = useMemo<[number, number]>(() => {
+    if (showOwnLocation && userLocation) {
+      return userLocation;
+    }
     if (alertas.length > 0 && alertas[0].latitud != null && alertas[0].longitud != null) {
       return [alertas[0].latitud, alertas[0].longitud];
     }
@@ -68,10 +87,10 @@ export default function PatrulleroMapClient({
       return [heatPoints[0].lat, heatPoints[0].lng];
     }
     return [-2.14, -79.59];
-  }, [alertas, heatPoints, patrulleros]);
+  }, [alertas, heatPoints, patrulleros, showOwnLocation, userLocation]);
 
   const alertasActivas = alertas.filter((a) =>
-    ["activa", "reconocida"].includes(a.estado),
+    ["activa", "en_proceso", "reconocida"].includes(a.estado),
   );
 
   const selectedId = selectedAlerta?.id ?? selectedAlertaId ?? null;
@@ -100,11 +119,28 @@ export default function PatrulleroMapClient({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <FlyToPosition position={focusPosition ?? userLocation} />
+      <FlyToPosition position={focusPosition} />
+
+      {routeFrom && routeTo && (
+        <AlertRouteLayer
+          from={routeFrom}
+          to={routeTo}
+          onRouteChange={onRouteChange}
+          onRouteError={onRouteError}
+        />
+      )}
 
       {showOwnLocation && userLocation && (
-        <Marker position={userLocation} icon={getOwnLocationMarkerIcon()}>
-          <Popup>Tu ubicación</Popup>
+        <Marker position={userLocation} icon={getOwnLocationMarkerIcon()} zIndexOffset={950}>
+          <Popup>
+            <div className="text-sm min-w-[140px]">
+              <p className="font-semibold text-white">{ownLocationLabel}</p>
+              <p className="text-xs text-slate-400 mt-1">Tu ubicación en patrulla</p>
+              {ownLocationPrecisionM != null && (
+                <p className="text-xs text-slate-500">±{Math.round(ownLocationPrecisionM)} m</p>
+              )}
+            </div>
+          </Popup>
         </Marker>
       )}
 
@@ -181,13 +217,24 @@ export default function PatrulleroMapClient({
                 {alerta.descripcion && (
                   <p className="text-xs text-slate-300 mt-1">{alerta.descripcion}</p>
                 )}
-                <button
-                  type="button"
-                  className="mt-2 text-xs text-indigo-400 underline"
-                  onClick={() => onSelectAlerta(alerta)}
-                >
-                  Ver detalle
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="text-xs text-indigo-400 underline"
+                    onClick={() => onSelectAlerta(alerta)}
+                  >
+                    Ver detalle
+                  </button>
+                  {onNavigateToAlerta && (
+                    <button
+                      type="button"
+                      className="text-xs text-sky-400 underline"
+                      onClick={() => onNavigateToAlerta(alerta)}
+                    >
+                      Ver ruta
+                    </button>
+                  )}
+                </div>
               </div>
             </Popup>
           </Marker>

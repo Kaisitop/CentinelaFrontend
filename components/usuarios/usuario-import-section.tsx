@@ -84,14 +84,19 @@ export function UsuarioImportSection({ onImported }: UsuarioImportSectionProps) 
 
   return (
     <section className="rounded-xl border border-[#334155] bg-[#1e293b] p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <Upload className="h-5 w-5 text-[#6366f1]" />
-        <h2 className="text-lg font-semibold text-white">Importación masiva</h2>
+      <div className="mb-1 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0ea5e9]/15 ring-1 ring-[#0ea5e9]/30">
+          <Upload className="h-4 w-4 text-[#7dd3fc]" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-white">Importación masiva</h2>
+          <p className="text-xs text-[#64748b]">Excel o CSV · hasta 500 registros</p>
+        </div>
       </div>
 
-      <p className="mb-4 text-sm leading-relaxed text-[#94a3b8]">
-        Sube un archivo Excel (.xlsx) o CSV con nombre, correo y teléfono
-        (opcional). Asigna un rol por defecto al lote o incluye la columna{" "}
+      <p className="mb-4 mt-4 text-sm leading-relaxed text-[#94a3b8]">
+        Sube un archivo con nombre, correo y teléfono (opcional). Asigna un rol por
+        defecto al lote o incluye la columna{" "}
         <code className="rounded bg-[#0f172a] px-1 text-[#cbd5e1]">rol</code>{" "}
         en cada fila.
       </p>

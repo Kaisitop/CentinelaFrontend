@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import { tokenStorage } from "@/lib/api";
 
+const WS_ENABLED = process.env.NEXT_PUBLIC_WS_ENABLED === "true";
+
 const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL ||
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api").replace(
@@ -49,6 +51,7 @@ function dispatch(event: RealtimeEvent, payload: unknown) {
 }
 
 function connectSocket() {
+  if (!WS_ENABLED) return;
   if (socket?.connected) return;
 
   const token = tokenStorage.getAccessToken();

@@ -9,38 +9,67 @@ import { ReporteDetailPanel } from "@/components/reportes/reporte-detail-panel";
 import { parseMediaUrls } from "@/lib/parse-media-urls";
 import { getApiErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
-import { ImageIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Car,
+  FileText,
+  Flag,
+  ImageIcon,
+  Inbox,
+  MapPin,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  SlidersHorizontal,
+  User,
+  X,
+} from "lucide-react";
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
 
-const ESTADOS: Record<string, { label: string; bg: string }> = {
-  PENDIENTE:  { label: "Pendiente",  bg: "bg-[#ef4444] text-white" },
-  EN_PROCESO: { label: "En Proceso", bg: "bg-[#f59e0b] text-white" },
-  RESUELTO:   { label: "Resuelto",   bg: "bg-[#22c55e] text-white" },
-  FALSO:      { label: "Falso",      bg: "bg-[#64748b] text-white" },
+const ESTADOS: Record<string, { label: string; badge: string; dot: string; color: string }> = {
+  PENDIENTE:  { label: "Pendiente",  badge: "bg-[#ef4444]/15 text-[#fca5a5] ring-1 ring-[#ef4444]/30", dot: "bg-[#ef4444]", color: "text-[#ef4444]" },
+  EN_PROCESO: { label: "En proceso", badge: "bg-[#f59e0b]/15 text-[#fcd34d] ring-1 ring-[#f59e0b]/30", dot: "bg-[#f59e0b]", color: "text-[#f59e0b]" },
+  RESUELTO:   { label: "Resuelto",   badge: "bg-[#22c55e]/15 text-[#86efac] ring-1 ring-[#22c55e]/30", dot: "bg-[#22c55e]", color: "text-[#22c55e]" },
+  FALSO:      { label: "Falso",      badge: "bg-[#64748b]/20 text-[#cbd5e1] ring-1 ring-[#64748b]/30", dot: "bg-[#64748b]", color: "text-[#64748b]" },
 };
 
-const TIPOS: Record<string, { label: string; color: string; icon: string }> = {
-  PANICO:               { label: "Pánico",              color: "bg-[#ef4444]/20 text-[#ef4444]",   icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
-  HOMICIDIO_SICARIATO:  { label: "Homicidio/Sicariato", color: "bg-[#dc2626]/20 text-[#dc2626]",   icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
-  SECUESTRO:            { label: "Secuestro",            color: "bg-[#7c3aed]/20 text-[#7c3aed]",   icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
-  ROBO:                 { label: "Robo",                 color: "bg-[#f59e0b]/20 text-[#f59e0b]",   icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
-  EXTORSION:            { label: "Extorsión",            color: "bg-[#ec4899]/20 text-[#ec4899]",   icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-  PERSONA_SOSPECHOSA:   { label: "Persona Sospechosa",  color: "bg-[#6366f1]/20 text-[#6366f1]",   icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
-  VEHICULO_SOSPECHOSO:  { label: "Vehículo Sospechoso", color: "bg-[#0ea5e9]/20 text-[#0ea5e9]",   icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" },
+const TIPOS: Record<string, { label: string; color: string; icon: typeof ShieldAlert }> = {
+  PANICO:              { label: "Pánico",              color: "#ef4444", icon: ShieldAlert },
+  HOMICIDIO_SICARIATO: { label: "Homicidio/Sicariato", color: "#dc2626", icon: ShieldAlert },
+  SECUESTRO:           { label: "Secuestro",           color: "#a78bfa", icon: User },
+  ROBO:                { label: "Robo",                color: "#f59e0b", icon: AlertTriangle },
+  EXTORSION:           { label: "Extorsión",           color: "#ec4899", icon: Flag },
+  PERSONA_SOSPECHOSA:  { label: "Persona sospechosa",  color: "#6366f1", icon: User },
+  VEHICULO_SOSPECHOSO: { label: "Vehículo sospechoso", color: "#0ea5e9", icon: Car },
 };
 
 const getTipo = (tipo: string) =>
-  TIPOS[tipo] ?? { label: tipo, color: "bg-[#334155]/20 text-[#94a3b8]", icon: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" };
+  TIPOS[tipo] ?? { label: tipo.replace(/_/g, " "), color: "#94a3b8", icon: FileText };
 
-const getPrioridadColor = (p: number) =>
-  p >= 4 ? "text-[#ef4444]" : p >= 3 ? "text-[#f59e0b]" : "text-[#22c55e]";
+const prioridadColor = (p: number) =>
+  p >= 4 ? "#ef4444" : p >= 3 ? "#f59e0b" : "#22c55e";
+
+function formatRelativeTime(iso?: string | null) {
+  if (!iso) return "—";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "hace instantes";
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH} h`;
+  const diffD = Math.floor(diffMin / 1440);
+  if (diffD === 1) return "ayer";
+  if (diffD < 7) return `hace ${diffD} días`;
+  return new Date(iso).toLocaleDateString();
+}
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function ReportesPage() {
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
@@ -48,10 +77,12 @@ export default function ReportesPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState("todos");
   const [filterEstado, setFilterEstado] = useState("todos");
+  const [searchTerm, setSearchTerm] = useState("");
   const [modalNotas, setModalNotas] = useState<{ id: string; action: "resolver" | "falso" } | null>(null);
   const [notas, setNotas] = useState("");
 
   const fetchReportes = useCallback(async () => {
+    setRefreshing(true);
     try {
       const data = await coreService.getReportes();
       setReportes(data);
@@ -59,6 +90,7 @@ export default function ReportesPage() {
       toast.error("Error al cargar los reportes");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -132,11 +164,32 @@ export default function ReportesPage() {
 
   // ─── Filtrado ────────────────────────────────────────────────────────────
 
-  const filtered = reportes.filter((r) => {
+  // Filtros base (sin estado) — los contadores por estado se calculan sobre esta lista
+  const baseFiltered = reportes.filter((r) => {
     const matchTipo = filterTipo === "todos" || r.tipo === filterTipo;
-    const matchEstado = filterEstado === "todos" || r.estado === filterEstado;
-    return matchTipo && matchEstado;
+    const q = searchTerm.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      r.descripcion.toLowerCase().includes(q) ||
+      r.id.toLowerCase().includes(q) ||
+      (r.zonaNombre ?? r.zona?.nombre ?? "").toLowerCase().includes(q);
+    return matchTipo && matchSearch;
   });
+
+  const filtered = baseFiltered.filter(
+    (r) => filterEstado === "todos" || r.estado === filterEstado,
+  );
+
+  const activeFilterCount =
+    (filterTipo !== "todos" ? 1 : 0) +
+    (filterEstado !== "todos" ? 1 : 0) +
+    (searchTerm.trim() ? 1 : 0);
+
+  const resetFilters = () => {
+    setFilterTipo("todos");
+    setFilterEstado("todos");
+    setSearchTerm("");
+  };
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -146,132 +199,244 @@ export default function ReportesPage() {
         <Sidebar />
         <main className="ml-64 p-8">
           {/* Header */}
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold text-white">Reportes Ciudadanos</h1>
-            <p className="text-[#94a3b8] mt-1">Gestión de reportes enviados desde la app móvil ciudadana</p>
+          <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-white">Reportes Ciudadanos</h1>
+              <p className="mt-1 text-[#94a3b8]">
+                Gestión de reportes enviados desde la app móvil ciudadana
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchReportes()}
+              disabled={refreshing}
+              className="flex items-center gap-2 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-2 text-sm text-[#94a3b8] transition-colors hover:border-[#6366f1]/50 hover:text-white disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Actualizar
+            </button>
           </header>
 
-          {/* Stats */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            {[
-              { label: "Total", value: reportes.length, color: "text-white" },
-              { label: "Pendientes",  value: reportes.filter(r => r.estado === "PENDIENTE").length,  color: "text-[#ef4444]" },
-              { label: "En Proceso",  value: reportes.filter(r => r.estado === "EN_PROCESO").length, color: "text-[#f59e0b]" },
-              { label: "Resueltos",   value: reportes.filter(r => r.estado === "RESUELTO").length,   color: "text-[#22c55e]" },
-              { label: "Falsos",      value: reportes.filter(r => r.estado === "FALSO").length,       color: "text-[#64748b]" },
-            ].map(s => (
-              <div key={s.label} className="bg-[#1e293b] rounded-lg p-4 border border-[#334155]">
-                <p className="text-[#94a3b8] text-sm">{s.label}</p>
-                <p className={`text-2xl font-bold ${s.color}`}>{loading ? "—" : s.value}</p>
-              </div>
+          {/* Stats — clic para filtrar por estado */}
+          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+            {(
+              [
+                { key: "todos", label: "Total (filtro)", color: "text-white", count: baseFiltered.length },
+                { key: "PENDIENTE", label: "Pendientes", color: ESTADOS.PENDIENTE.color, count: baseFiltered.filter((r) => r.estado === "PENDIENTE").length },
+                { key: "EN_PROCESO", label: "En proceso", color: ESTADOS.EN_PROCESO.color, count: baseFiltered.filter((r) => r.estado === "EN_PROCESO").length },
+                { key: "RESUELTO", label: "Resueltos", color: ESTADOS.RESUELTO.color, count: baseFiltered.filter((r) => r.estado === "RESUELTO").length },
+                { key: "FALSO", label: "Falsos", color: ESTADOS.FALSO.color, count: baseFiltered.filter((r) => r.estado === "FALSO").length },
+              ] as const
+            ).map((stat) => (
+              <button
+                key={stat.key}
+                type="button"
+                onClick={() => setFilterEstado(stat.key)}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  filterEstado === stat.key
+                    ? "border-[#6366f1] bg-[#6366f1]/10"
+                    : "border-[#334155] bg-[#1e293b] hover:border-[#475569]"
+                }`}
+                title={`Filtrar por: ${stat.label}`}
+              >
+                <p className="text-sm text-[#94a3b8]">{stat.label}</p>
+                <p className={`text-2xl font-bold tabular-nums ${stat.color}`}>
+                  {loading ? "—" : stat.count}
+                </p>
+              </button>
             ))}
           </div>
 
           {/* Filters */}
-          <div className="bg-[#1e293b] rounded-xl p-4 border border-[#334155] mb-6">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div>
-                <label className="block text-sm text-[#94a3b8] mb-1">Tipo</label>
-                <select
-                  value={filterTipo}
-                  onChange={(e) => setFilterTipo(e.target.value)}
-                  className="px-3 py-2 bg-[#0f172a] border border-[#334155] rounded-lg text-sm text-white focus:outline-none focus:border-[#6366f1]"
-                >
-                  <option value="todos">Todos</option>
-                  {Object.entries(TIPOS).map(([k, v]) => (
-                    <option key={k} value={k}>{v.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-[#94a3b8] mb-1">Estado</label>
-                <select
-                  value={filterEstado}
-                  onChange={(e) => setFilterEstado(e.target.value)}
-                  className="px-3 py-2 bg-[#0f172a] border border-[#334155] rounded-lg text-sm text-white focus:outline-none focus:border-[#6366f1]"
-                >
-                  <option value="todos">Todos</option>
-                  {Object.entries(ESTADOS).map(([k, v]) => (
-                    <option key={k} value={k}>{v.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="self-end ml-auto">
-                <button
-                  onClick={fetchReportes}
-                  className="px-4 py-2 bg-[#334155] hover:bg-[#475569] text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Actualizar
-                </button>
-              </div>
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-[#334155] bg-[#1e293b] px-5 py-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+              <SlidersHorizontal className="h-4 w-4 text-[#6366f1]" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-[#6366f1]/20 px-2 py-0.5 text-[11px] font-medium text-[#a5b4fc]">
+                  {activeFilterCount}
+                </span>
+              )}
             </div>
+
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748b]" />
+              <input
+                type="text"
+                placeholder="Buscar por descripción, zona o ID…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] py-2 pl-9 pr-8 text-sm text-white placeholder-[#64748b] focus:border-[#6366f1] focus:outline-none"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#64748b] hover:text-white"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <select
+              value={filterTipo}
+              onChange={(e) => setFilterTipo(e.target.value)}
+              className="rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+              title="Tipo de reporte"
+            >
+              <option value="todos">Todos los tipos</option>
+              {Object.entries(TIPOS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterEstado}
+              onChange={(e) => setFilterEstado(e.target.value)}
+              className="rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+              title="Estado del reporte"
+            >
+              <option value="todos">Todos los estados</option>
+              {Object.entries(ESTADOS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={activeFilterCount === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-[#334155] px-3 py-2 text-sm text-[#94a3b8] transition-colors hover:border-[#ef4444]/40 hover:text-[#fca5a5] disabled:cursor-not-allowed disabled:opacity-40"
+              title="Restablecer filtros"
+            >
+              <X className="h-4 w-4" />
+              Limpiar
+            </button>
           </div>
 
           {/* Main content: list + detail */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* List */}
-            <div className="lg:col-span-2 bg-[#1e293b] rounded-xl border border-[#334155]">
-              <div className="p-4 border-b border-[#334155]">
-                <h2 className="text-lg font-semibold text-white">Listado de Reportes</h2>
-                <p className="text-sm text-[#64748b]">{filtered.length} reportes encontrados</p>
+            <div className="rounded-xl border border-[#334155] bg-[#1e293b] lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-[#334155] p-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#6366f1]" />
+                  <h2 className="text-lg font-semibold text-white">Listado de reportes</h2>
+                </div>
+                <span className="rounded-full bg-[#0f172a] px-2.5 py-1 text-[11px] text-[#64748b] ring-1 ring-[#334155]">
+                  {filtered.length} de {reportes.length}
+                </span>
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-[#94a3b8]">Cargando reportes...</div>
+                <div className="flex flex-col items-center gap-3 p-12 text-center">
+                  <RefreshCw className="h-6 w-6 animate-spin text-[#6366f1]" />
+                  <p className="text-sm text-[#94a3b8]">Cargando reportes…</p>
+                </div>
               ) : filtered.length === 0 ? (
-                <div className="p-8 text-center text-[#94a3b8]">No hay reportes que coincidan con los filtros.</div>
+                <div className="flex flex-col items-center gap-3 p-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#334155] bg-[#0f172a]">
+                    <Inbox className="h-6 w-6 text-[#64748b]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#e2e8f0]">
+                      No hay reportes con los filtros seleccionados
+                    </p>
+                    {activeFilterCount > 0 && (
+                      <p className="mt-1 text-xs text-[#64748b]">
+                        <button
+                          type="button"
+                          onClick={resetFilters}
+                          className="font-medium text-[#818cf8] underline underline-offset-2 hover:text-[#a5b4fc]"
+                        >
+                          Restablecer los filtros
+                        </button>{" "}
+                        para ver todos.
+                      </p>
+                    )}
+                  </div>
+                </div>
               ) : (
-                <div className="divide-y divide-[#334155] max-h-[600px] overflow-y-auto">
+                <div className="max-h-[640px] divide-y divide-[#334155] overflow-y-auto">
                   {filtered.map((r) => {
                     const tipo = getTipo(r.tipo);
-                    const estado = ESTADOS[r.estado] ?? { label: r.estado, bg: "bg-[#334155] text-[#94a3b8]" };
+                    const TipoIcon = tipo.icon;
+                    const estado = ESTADOS[r.estado ?? ""] ?? {
+                      label: r.estado ?? "—",
+                      badge: "bg-[#334155] text-[#94a3b8]",
+                      dot: "bg-[#64748b]",
+                      color: "text-[#94a3b8]",
+                    };
                     const fotoCount = parseMediaUrls(r.fotosUrls).length;
+                    const prioridad = r.prioridad ?? 0;
+                    const zonaNombre = r.zonaNombre ?? r.zona?.nombre;
+                    const isSelected = selectedId === r.id;
                     return (
                       <button
                         key={r.id}
                         onClick={() => setSelectedId(r.id)}
-                        className={`w-full p-4 text-left hover:bg-[#334155]/30 transition-colors ${selectedId === r.id ? "bg-[#334155]/50 border-l-4 border-[#6366f1]" : ""}`}
+                        className={`w-full p-4 text-left transition-colors hover:bg-[#334155]/30 ${
+                          isSelected ? "border-l-4 border-[#6366f1] bg-[#334155]/50 pl-3" : ""
+                        }`}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#0f172a] flex items-center justify-center shrink-0">
-                              <svg className="w-5 h-5 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tipo.icon} />
-                              </svg>
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1"
+                              style={{
+                                backgroundColor: `${tipo.color}1a`,
+                                // @ts-expect-error CSS var for ring color
+                                "--tw-ring-color": `${tipo.color}40`,
+                              }}
+                            >
+                              <TipoIcon className="h-5 w-5" style={{ color: tipo.color }} />
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-white font-mono">{r.id.slice(0, 8)}…</span>
+                            <div className="min-w-0">
+                              <div className="mb-0.5 flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-white">
+                                  {tipo.label}
+                                </span>
                                 {r.eventoId && (
-                                  <span className="px-1.5 py-0.5 bg-[#6366f1]/20 text-[#6366f1] rounded text-[10px] font-medium">Con Alerta</span>
+                                  <span className="rounded bg-[#6366f1]/20 px-1.5 py-0.5 text-[10px] font-medium text-[#a5b4fc]">
+                                    Con alerta
+                                  </span>
                                 )}
                                 {fotoCount > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#0ea5e9]/15 text-[#7dd3fc] rounded text-[10px] font-medium">
+                                  <span className="inline-flex items-center gap-0.5 rounded bg-[#0ea5e9]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#7dd3fc]">
                                     <ImageIcon className="h-3 w-3" />
                                     {fotoCount}
                                   </span>
                                 )}
                               </div>
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${tipo.color}`}>
-                                {tipo.label}
+                              <span className="font-mono text-xs text-[#64748b]">
+                                #{r.id.slice(0, 8).toUpperCase()}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${estado.bg}`}>
-                              {estado.label}
-                            </span>
-                            <p className="text-xs text-[#64748b] mt-2">{r.zonaNombre ?? "Sin zona"}</p>
-                          </div>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${estado.badge}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${estado.dot}`} />
+                            {estado.label}
+                          </span>
                         </div>
-                        <p className="text-sm text-[#94a3b8] line-clamp-2">{r.descripcion}</p>
-                        <div className="flex items-center justify-between mt-2 text-xs text-[#64748b]">
-                          <span>{new Date(r.createdAt).toLocaleString()}</span>
-                          <span className={`font-medium ${getPrioridadColor(r.prioridad)}`}>
-                            Prioridad {r.prioridad}
+                        <p className="line-clamp-2 pl-[52px] text-sm text-[#94a3b8]">{r.descripcion}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-[52px] text-xs text-[#64748b]">
+                          <span title={r.createdAt ? new Date(r.createdAt).toLocaleString() : undefined}>
+                            {formatRelativeTime(r.createdAt)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {zonaNombre ?? "Sin zona"}
+                          </span>
+                          <span className="ml-auto flex items-center gap-1.5 font-medium" style={{ color: prioridadColor(prioridad) }}>
+                            <span
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: prioridadColor(prioridad) }}
+                            />
+                            Prioridad {prioridad}
                           </span>
                         </div>
                       </button>

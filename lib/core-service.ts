@@ -60,6 +60,7 @@ export interface Reporte {
   descripcion: string;
   ubicacion?: string;
   zonaId?: string | null;
+  zonaNombre?: string | null;
   zona?: { nombre: string } | null;
   usuarioId?: string | null;
   estado?: string;
@@ -101,7 +102,7 @@ export interface Alerta {
   codigo: string;
   tipo: string;
   descripcion: string | null;
-  estado: "activa" | "reconocida" | "cerrada" | "falsa_alarma" | "completada";
+  estado: "activa" | "en_proceso" | "reconocida" | "cerrada" | "falsa_alarma" | "completada";
   severidad: number;
   zonaId: string | null;
   zona?: { nombre: string } | null;
@@ -240,6 +241,12 @@ export const coreService = {
     return data;
   },
 
+  /** Patrullero: marca que va en camino hacia la alerta. */
+  async marcarEnCaminoAlerta(id: string): Promise<Alerta> {
+    const { data } = await api.post(`/alertas/${id}/en-camino`);
+    return data;
+  },
+
   /** Patrullero: reconoce en campo con informe y evidencia (no cierra). */
   async atenderAlertaCampo(
     id: string,
@@ -263,7 +270,10 @@ export const coreService = {
   ): Promise<{ cerradas: number; errores: number; total: number }> {
     const alertas = await this.getAlertas();
     const abiertas = alertas.filter(
-      (a) => a.estado === "activa" || a.estado === "reconocida",
+      (a) =>
+        a.estado === "activa" ||
+        a.estado === "en_proceso" ||
+        a.estado === "reconocida",
     );
     let cerradas = 0;
     let errores = 0;

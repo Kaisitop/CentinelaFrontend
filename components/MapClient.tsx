@@ -16,6 +16,7 @@ import L from "leaflet";
 import wellknown from "wellknown";
 import { Zona, Nodo, Alerta } from "@/lib/core-service";
 import { getAlertaGeneradaPorLabel, getAlertaSubtipo, getAlertaTipoLabel } from "@/lib/alert-utils";
+import { useUserPreferences } from "@/lib/use-user-preferences";
 import {
   ensureMapMarkerStyles,
   getAlertMapMarkerKind,
@@ -57,6 +58,7 @@ const getRiesgoLabel = (nivel: number) => {
 
 export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
   const milagroCenter: [number, number] = [-2.14, -79.59];
+  const { prefs } = useUserPreferences();
 
   useEffect(() => {
     ensureMapMarkerStyles();
@@ -90,7 +92,7 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
       />
 
       {/* Capa de Zonas (Polígonos) */}
-      {zonas.map((zona, index) => {
+      {prefs.mapShowZonas && zonas.map((zona, index) => {
         if (!zona.geomWkt) return null;
         try {
           const geojson = wellknown(zona.geomWkt);
@@ -139,7 +141,7 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
       })}
 
       {/* Capa de Nodos IoT */}
-      {nodos.map((nodo) => {
+      {prefs.mapShowNodos && nodos.map((nodo) => {
         const pos = parsePoint(nodo.ubicacion);
         if (!pos) return null;
 
@@ -154,7 +156,7 @@ export default function MapClient({ zonas, nodos, alertas }: MapClientProps) {
       })}
 
       {/* Capa de Alertas Activas */}
-      {alertas.filter(a => a.estado === "activa").map((alerta) => {
+      {prefs.mapShowAlertas && alertas.filter(a => a.estado === "activa").map((alerta) => {
         let pos: [number, number] | null = null;
         if (alerta.latitud && alerta.longitud) {
           pos = [alerta.latitud, alerta.longitud];

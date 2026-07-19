@@ -41,6 +41,12 @@ const ESTADOS: Record<
     ring: "ring-[#ef4444]/30",
     dot: "bg-[#ef4444]",
   },
+  en_proceso: {
+    label: "En camino",
+    bg: "bg-[#0ea5e9]/15 text-[#7dd3fc]",
+    ring: "ring-[#0ea5e9]/30",
+    dot: "bg-[#0ea5e9]",
+  },
   reconocida: {
     label: "Reconocida",
     bg: "bg-[#f59e0b]/15 text-[#fcd34d]",
@@ -249,7 +255,10 @@ export function AlertaDetailPanel({
   const metadatos = alerta.evento?.metadatos as Record<string, unknown> | null | undefined;
   const isLoading = actionLoading === alerta.id;
   const canReconocer = alerta.estado === "activa";
-  const canCerrar = alerta.estado === "activa" || alerta.estado === "reconocida";
+  const canCerrar =
+    alerta.estado === "activa" ||
+    alerta.estado === "en_proceso" ||
+    alerta.estado === "reconocida";
   const hasActions = canReconocer || canCerrar;
   const evidenciaFotos = parseMediaUrls(alerta.evidenciaUrls);
   const reporteFotos = parseMediaUrls(alerta.reporte?.fotosUrls);

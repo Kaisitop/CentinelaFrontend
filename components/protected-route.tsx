@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider"
 import { isPolicia, isAdmin } from "@/lib/roles"
 
 const POLICIA_HOME = "/patrullaje"
+const POLICIA_ALLOWED_PREFIXES = [POLICIA_HOME, "/configuracion"]
 const ADMIN_PREFIXES = ["/", "/alertas", "/reportes", "/nodos-iot"]
 const ADMIN_ONLY_PREFIXES = ["/usuarios"]
 
@@ -22,8 +23,11 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
 
     if (!isLoading && isAuthenticated && isPolicia(user)) {
+      const isAllowedRoute = POLICIA_ALLOWED_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      )
       const isAdminRoute =
-        pathname !== POLICIA_HOME &&
+        !isAllowedRoute &&
         ADMIN_PREFIXES.some(
           (p) => p === pathname || (p !== "/" && pathname.startsWith(p)),
         )

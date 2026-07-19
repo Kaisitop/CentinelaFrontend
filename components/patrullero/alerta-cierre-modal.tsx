@@ -31,7 +31,7 @@ export function AlertaCierreModal({
   const [foto, setFoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const puedeAtender = alerta?.estado === "activa";
+  const puedeAtender = alerta?.estado === "en_proceso";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,8 +83,17 @@ export function AlertaCierreModal({
 
         {!puedeAtender ? (
           <p className="text-sm text-[#fcd34d] rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-3">
-            Esta alerta ya está <strong>reconocida</strong>. El operador del centro de comando
-            la marcará como cerrada o falsa alarma.
+            {alerta.estado === "activa" ? (
+              <>
+                Primero marca la alerta como <strong>en camino</strong> cuando te dirijas al lugar.
+                Al llegar podrás enviar el informe de campo.
+              </>
+            ) : (
+              <>
+                Esta alerta ya está <strong>reconocida</strong>. El operador del centro de comando
+                la marcará como cerrada o falsa alarma.
+              </>
+            )}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -115,8 +124,9 @@ export function AlertaCierreModal({
             </div>
 
             <p className="text-xs text-[#64748b]">
-              La alerta quedará en estado <strong className="text-[#fcd34d]">reconocida</strong>.
-              No cierras el caso: el operador revisará tu informe y evidencia.
+              Al llegar al sitio, la alerta quedará en estado{" "}
+              <strong className="text-[#fcd34d]">reconocida</strong>. El operador revisará tu
+              informe y cerrará el caso.
             </p>
 
             <button
