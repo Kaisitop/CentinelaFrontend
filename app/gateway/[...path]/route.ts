@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const GATEWAY_ORIGIN = (
   process.env.GATEWAY_ORIGIN ||
@@ -9,18 +10,8 @@ const GATEWAY_ORIGIN = (
   ""
 ).replace(/\/$/, "");
 
-const HOP_BY_HOP = new Set([
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailers",
-  "transfer-encoding",
-  "upgrade",
-  "host",
-  "content-length",
-]);
+/** Vercel a veces elimina Authorization; el cliente también manda este header. */
+const AUTH_FALLBACK = "x-centinela-authorization";
 
 async function proxy(
   req: NextRequest,
@@ -38,22 +29,19 @@ async function proxy(
   const targetUrl = `${GATEWAY_ORIGIN}/api/${targetPath}${req.nextUrl.search}`;
 
   const headers = new Headers();
-  req.headers.forEach((value, key) => {
-    const lower = key.toLowerCase();
-    if (HOP_BY_HOP.has(lower)) return;
-    // Vercel a veces mueve/rompe Authorization; reinyectamos si existe.
-    headers.set(key, value);
-  });
+  const contentType = req.headers.get("content-type");
+  if (contentType) headers.set("content-type", contentType);
+  headers.set("accept", req.headers.get("accept") || "application/json");
 
   const authorization =
     req.headers.get("authorization") ||
-    req.headers.get("Authorization") ||
+    req.headers.get(AUTH_FALLBACK) ||
     "";
   if (authorization) {
     headers.set("authorization", authorization);
   }
 
-  const init: RequestInit = {
+  const init: RequestInit & { duplex?: "half" } = {
     method: req.method,
     headers,
     redirect: "manual",
@@ -61,7 +49,12 @@ async function proxy(
   };
 
   if (req.method !== "GET" && req.method !== "HEAD") {
-    init.body = await req.arrayBuffer();
+    const body = await req.arrayBuffer();
+    if (body.byteLength > 0) {
+      init.body = body;
+      // Node fetch exige duplex cuando hay body en algunos runtimes
+      init.duplex = "half";
+    }
   }
 
   let upstream: Response;
@@ -76,11 +69,17 @@ async function proxy(
   }
 
   const responseHeaders = new Headers();
-  const contentType = upstream.headers.get("content-type");
-  if (contentType) responseHeaders.set("content-type", contentType);
+  const upstreamType = upstream.headers.get("content-type");
+  if (upstreamType) responseHeaders.set("content-type", upstreamType);
 
-  const body = await upstream.arrayBuffer();
-  return new NextResponse(body, {
+  // Ayuda a depurar en Network si llegó token al proxy
+  responseHeaders.set(
+    "x-centinela-proxy-auth",
+    authorization ? "present" : "missing",
+  );
+
+  const outBody = await upstream.arrayBuffer();
+  return new NextResponse(outBody, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: responseHeaders,

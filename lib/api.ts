@@ -41,11 +41,14 @@ export const api = axios.create({
   },
 })
 
-// Interceptor de request: agrega el accessToken a cada peticion
+// Interceptor de request: agrega el accessToken a cada peticion.
+// X-Centinela-Authorization: Vercel a veces elimina el header Authorization.
 api.interceptors.request.use((config) => {
   const token = tokenStorage.getAccessToken()
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    const bearer = `Bearer ${token}`
+    config.headers.Authorization = bearer
+    config.headers["X-Centinela-Authorization"] = bearer
   }
   return config
 })
@@ -81,7 +84,9 @@ api.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve) => {
           pendingRequests.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
+            const bearer = `Bearer ${token}`
+            originalRequest.headers.Authorization = bearer
+            originalRequest.headers["X-Centinela-Authorization"] = bearer
             resolve(api(originalRequest))
           })
         })
@@ -98,7 +103,9 @@ api.interceptors.response.use(
           localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken)
         }
         onTokenRefreshed(newAccessToken)
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+        const bearer = `Bearer ${newAccessToken}`
+        originalRequest.headers.Authorization = bearer
+        originalRequest.headers["X-Centinela-Authorization"] = bearer
         return api(originalRequest)
       } catch (refreshError) {
         tokenStorage.clear()

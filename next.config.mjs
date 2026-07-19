@@ -21,6 +21,10 @@ const nextConfig = {
     // Solo dejamos Socket.IO por rewrite (polling).
     return [
       {
+        source: "/socket.io",
+        destination: `${GATEWAY_ORIGIN}/socket.io/`,
+      },
+      {
         source: "/socket.io/:path*",
         destination: `${GATEWAY_ORIGIN}/socket.io/:path*`,
       },
